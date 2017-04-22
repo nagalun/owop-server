@@ -12,13 +12,16 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 public class Server extends WebSocketServer {
-	private static HashMap<String, Player> players = new HashMap<String, Player>();
+	private static HashMap<InetSocketAddress, Player> players = new HashMap<InetSocketAddress, Player>();
 	private static HashMap<String, World> worlds = new HashMap<String, World>();
 	private static String admPass;
 
 	public Server(final String admPass, final int port) throws Exception {
-		super(new InetSocketAddress("localhost", port));
+		super(new InetSocketAddress(port));
 		Server.admPass = admPass;
+		System.out.println("[INFO] Admin password is " + Server.admPass);
+		System.out.println("[INFO] Starting server on port " + this.getAddress().getPort() + ", IP: "
+				+ this.getAddress().getHostName());
 	}
 
 	@Override
@@ -28,18 +31,18 @@ public class Server extends WebSocketServer {
 			System.err.println("[ERROR] Connected player from used IP!");
 			return;
 		}
-		players.put(ws.getRemoteSocketAddress().getHostString(), (Player) null);
 	}
 
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
 		System.out.println("[INFO] Disconnected player from " + ws.getRemoteSocketAddress());
+		if (players.containsKey(ws.getRemoteSocketAddress()))
+			players.remove(ws.getRemoteSocketAddress());
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
-		if (players.containsKey(ws.getRemoteSocketAddress().getHostString())
-				&& players.get(ws.getRemoteSocketAddress().getHostString()) == null) {
+		if (!players.containsKey(ws.getRemoteSocketAddress())) {
 			final byte[] bytes = message.array();
 			String world = "";
 
@@ -49,15 +52,14 @@ public class Server extends WebSocketServer {
 			if (!worlds.containsKey(world))
 				worlds.put(world, new World());
 
-			players.put(ws.getRemoteSocketAddress().getHostString(),
-					new Player(worlds.get(world).getNextNickname(), world, ws));
-			System.out.println("[INFO] Connected player from " + ws.getRemoteSocketAddress() + " to world " + world);
+			players.put(ws.getRemoteSocketAddress(), new Player(worlds.get(world).getNextID(), world, ws));
+			System.out.println("[INFO] Joined player from " + ws.getRemoteSocketAddress() + " to world " + world);
 		} else
 			switch (message.array().length) {
 			case 8: {
 				message.order(ByteOrder.LITTLE_ENDIAN);
 				final int x = message.getInt(0), y = message.getInt(4);
-				players.get(ws.getRemoteSocketAddress().getHostString()).getChunk(x, y);
+				players.get(ws.getRemoteSocketAddress()).getChunk(x, y);
 				break;
 			}
 			case 11: {
@@ -68,7 +70,7 @@ public class Server extends WebSocketServer {
 				final int x = temp.getInt(0), y = temp.getInt(4);
 				final int rgb = ((temp.getShort(8) & 0xFF) << 16) | ((temp.getShort(9) & 0xFF) << 8)
 						| ((temp.getShort(10)) & 0xFF);
-				players.get(ws.getRemoteSocketAddress().getHostString()).putPixel(x, y, rgb);
+				players.get(ws.getRemoteSocketAddress()).putPixel(x, y, rgb);
 				break;
 			}
 			case 12: {
@@ -79,7 +81,7 @@ public class Server extends WebSocketServer {
 				final int x = temp.getInt(0), y = temp.getInt(4), tool = (temp.getShort(8) & 0xFF);
 				final int rgb = ((temp.getShort(9) & 0xFF) << 16) | ((temp.getShort(10) & 0xFF) << 8)
 						| ((temp.getShort(11)) & 0xFF);
-				players.get(ws.getRemoteSocketAddress().getHostString()).update(x, y, (byte) tool, rgb);
+				players.get(ws.getRemoteSocketAddress()).update(x, y, (byte) tool, rgb);
 				break;
 			}
 			}

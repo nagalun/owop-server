@@ -5,12 +5,12 @@ import java.util.HashMap;
 
 public class World {
 	private final HashMap<Integer, HashMap<Integer, Chunk>> chunks = new HashMap<Integer, HashMap<Integer, Chunk>>();
-	public ArrayList<Player> playerUpdates = new ArrayList<Player>();
-	public ArrayList<Integer> playerDisconnects = new ArrayList<Integer>();
+	public ArrayList<PlayerUpdate> playerUpdates = new ArrayList<PlayerUpdate>();
 	public ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
+	public ArrayList<Integer> playerDisconnects = new ArrayList<Integer>();
 	private int playersId;
 
-	public int getNextNickname() {
+	public int getNextID() {
 		playersId++;
 		return playersId - 1;
 	}

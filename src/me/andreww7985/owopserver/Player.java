@@ -10,7 +10,7 @@ public class Player {
 	private short tool;
 	private final String world;
 	private final WebSocket webSocket;
-	private int x, y, rgb;
+	private int x, y, rgb, lastX, lastY;
 	private final int id;
 
 	public Player(final int id, final String world, final WebSocket webSocket) {
@@ -37,7 +37,7 @@ public class Player {
 				buffer.put(10 + (yy * 16 + xx) * 3, (byte) (chunk.getPixel(xx, yy) >> 8 & 0xFF));
 				buffer.put(11 + (yy * 16 + xx) * 3, (byte) (chunk.getPixel(xx, yy) & 0xFF));
 			}
-		webSocket.send(buffer);
+		send(buffer.array());
 	}
 
 	public void putPixel(final int x, final int y, final int rgb) {
@@ -51,13 +51,19 @@ public class Player {
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
-		if (((x % 16) + 16) % 16 == lastXMod)
+		if (((x % 16) + 16) % 16 == lastXMod && x != lastX)
 			sameMod++;
-		if (((y % 16) + 16) % 16 == lastYMod)
+		else
+			sameMod = 0;
+		if (((y % 16) + 16) % 16 == lastYMod && y != lastY)
 			sameMod++;
+		else
+			sameMod = 0;
+		lastX = x;
+		lastY = y;
 		if (sameMod >= 20)
-			System.out.println("[WARNING] Found BOT with id " + id + ". Disconnecting...");
-		Server.getWorld(world).playerUpdates.add(this);
+			System.out.println("[WARNING] Found BOT with id " + id + "! Disconnecting...");
+		Server.getWorld(world).playerUpdates.add(new PlayerUpdate(x, y, rgb, tool, this.id));
 	}
 
 	public void sendUpdates() {
@@ -69,24 +75,24 @@ public class Player {
 		buffer.put(0, (byte) 0x01);
 		buffer.put(1, (byte) players);
 		for (int i = 0; i < players; i++) {
-			buffer.putInt(2 + i * 16, w.playerUpdates.get(i).getID());
-			buffer.putInt(2 + i * 16 + 4, w.playerUpdates.get(i).getX());
-			buffer.putInt(2 + i * 16 + 8, w.playerUpdates.get(i).getY());
-			buffer.put(2 + i * 16 + 12, (byte) (w.playerUpdates.get(i).getRGB() >> 16 & 0xFF));
-			buffer.put(2 + i * 16 + 13, (byte) (w.playerUpdates.get(i).getRGB() >> 8 & 0xFF));
-			buffer.put(2 + i * 16 + 14, (byte) (w.playerUpdates.get(i).getRGB() & 0xFF));
-			buffer.put(2 + i * 16 + 15, (byte) (w.playerUpdates.get(i).getTool() & 0xFF));
+			buffer.putInt(2 + i * 16, w.playerUpdates.get(i).id);
+			buffer.putInt(2 + i * 16 + 4, w.playerUpdates.get(i).x);
+			buffer.putInt(2 + i * 16 + 8, w.playerUpdates.get(i).y);
+			buffer.put(2 + i * 16 + 12, (byte) (w.playerUpdates.get(i).rgb >> 16 & 0xFF));
+			buffer.put(2 + i * 16 + 13, (byte) (w.playerUpdates.get(i).rgb >> 8 & 0xFF));
+			buffer.put(2 + i * 16 + 14, (byte) (w.playerUpdates.get(i).rgb & 0xFF));
+			buffer.put(2 + i * 16 + 15, (byte) (w.playerUpdates.get(i).tool & 0xFF));
 		}
 		buffer.putShort(2 + players * 16, (short) pixels);
 		for (int i = 0; i < pixels; i++) {
-			buffer.putInt(3 + players * 16 + i * 11, w.pixelUpdates.get(i).x);
-			buffer.putInt(3 + players * 16 + i * 11 + 4, w.pixelUpdates.get(i).y);
-			buffer.put(3 + players * 16 + i * 11 + 8, (byte) (w.pixelUpdates.get(i).rgb >> 16 & 0xFF));
-			buffer.put(3 + players * 16 + i * 11 + 9, (byte) (w.pixelUpdates.get(i).rgb >> 8 & 0xFF));
-			buffer.put(3 + players * 16 + i * 11 + 10, (byte) (w.pixelUpdates.get(i).rgb & 0xFF));
+			buffer.putInt(4 + players * 16 + i * 11, w.pixelUpdates.get(i).x);
+			buffer.putInt(4 + players * 16 + i * 11 + 4, w.pixelUpdates.get(i).y);
+			buffer.put(4 + players * 16 + i * 11 + 8, (byte) (w.pixelUpdates.get(i).rgb >> 16 & 0xFF));
+			buffer.put(4 + players * 16 + i * 11 + 9, (byte) (w.pixelUpdates.get(i).rgb >> 8 & 0xFF));
+			buffer.put(4 + players * 16 + i * 11 + 10, (byte) (w.pixelUpdates.get(i).rgb & 0xFF));
 		}
-		buffer.put(3 + players * 16 + pixels * 11, (byte) disconnects);
-		webSocket.send(buffer);
+		buffer.put(4 + players * 16 + pixels * 11, (byte) disconnects);
+		send(buffer.array());
 	}
 
 	public int getX() {
@@ -107,5 +113,14 @@ public class Player {
 
 	public int getID() {
 		return id;
+	}
+
+	public boolean isConnected() {
+		return webSocket.isOpen();
+	}
+
+	public void send(final byte[] data) {
+		if (isConnected())
+			webSocket.send(data);
 	}
 }
