@@ -31,12 +31,13 @@ public class Player {
 		buffer.put(0, (byte) 0x02);
 		buffer.putInt(1, x);
 		buffer.putInt(5, y);
-		for (int yy = 0; yy < 16; yy++)
+		for (int yy = 0; yy < 16; yy++) {
 			for (int xx = 0; xx < 16; xx++) {
 				buffer.put(9 + (yy * 16 + xx) * 3, (byte) (chunk.getPixel(xx, yy) >> 16 & 0xFF));
 				buffer.put(10 + (yy * 16 + xx) * 3, (byte) (chunk.getPixel(xx, yy) >> 8 & 0xFF));
 				buffer.put(11 + (yy * 16 + xx) * 3, (byte) (chunk.getPixel(xx, yy) & 0xFF));
 			}
+		}
 		send(buffer.array());
 	}
 
@@ -51,18 +52,21 @@ public class Player {
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
-		if (((x % 16) + 16) % 16 == lastXMod && x != lastX)
+		if (((x % 16) + 16) % 16 == lastXMod && x != lastX) {
 			sameMod++;
-		else
+		} else {
 			sameMod = 0;
-		if (((y % 16) + 16) % 16 == lastYMod && y != lastY)
+		}
+		if (((y % 16) + 16) % 16 == lastYMod && y != lastY) {
 			sameMod++;
-		else
+		} else {
 			sameMod = 0;
+		}
 		lastX = x;
 		lastY = y;
-		if (sameMod >= 20)
+		if (sameMod >= 20) {
 			System.out.println("[WARNING] Found BOT with id " + id + "! Disconnecting...");
+		}
 		Server.getWorld(world).playerUpdates.add(new PlayerUpdate(x, y, rgb, tool, this.id));
 	}
 
@@ -70,6 +74,9 @@ public class Player {
 		final World w = Server.getWorld(world);
 		final int players = w.playerUpdates.size(), pixels = w.pixelUpdates.size(),
 				disconnects = w.playerDisconnects.size();
+		if (players + pixels + disconnects == 0) {
+			return;
+		}
 		final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 16 + pixels * 11 + disconnects * 4);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put(0, (byte) 0x01);
@@ -120,7 +127,14 @@ public class Player {
 	}
 
 	public void send(final byte[] data) {
-		if (isConnected())
+		if (isConnected()) {
 			webSocket.send(data);
+		}
+	}
+
+	public void send(final String data) {
+		if (isConnected()) {
+			webSocket.send(data);
+		}
 	}
 }

@@ -36,8 +36,9 @@ public class Server extends WebSocketServer {
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
 		System.out.println("[INFO] Disconnected player from " + ws.getRemoteSocketAddress());
-		if (players.containsKey(ws.getRemoteSocketAddress()))
+		if (players.containsKey(ws.getRemoteSocketAddress())) {
 			players.remove(ws.getRemoteSocketAddress());
+		}
 	}
 
 	@Override
@@ -46,15 +47,19 @@ public class Server extends WebSocketServer {
 			final byte[] bytes = message.array();
 			String world = "";
 
-			for (int i = 0; i < bytes.length - 2; i++)
+			for (int i = 0; i < bytes.length - 2; i++) {
 				world += (char) bytes[i];
+			}
 
-			if (!worlds.containsKey(world))
+			if (!worlds.containsKey(world)) {
 				worlds.put(world, new World());
+			}
 
 			players.put(ws.getRemoteSocketAddress(), new Player(worlds.get(world).getNextID(), world, ws));
+			players.get(ws.getRemoteSocketAddress()).send("Hi, you are on BETA server!");
+			players.get(ws.getRemoteSocketAddress()).send("If you found bugs, please let us know!");
 			System.out.println("[INFO] Joined player from " + ws.getRemoteSocketAddress() + " to world " + world);
-		} else
+		} else {
 			switch (message.array().length) {
 			case 8: {
 				message.order(ByteOrder.LITTLE_ENDIAN);
@@ -84,12 +89,15 @@ public class Server extends WebSocketServer {
 				players.get(ws.getRemoteSocketAddress()).update(x, y, (byte) tool, rgb);
 				break;
 			}
+			default:
+				players.forEach((k, v) -> v.send(String.valueOf(message.asCharBuffer().array())));
 			}
+		}
 	}
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		ex.printStackTrace();
+		players.forEach((k, v) -> v.send("SERVER " + ex.toString()));
 	}
 
 	@Override
@@ -105,8 +113,8 @@ public class Server extends WebSocketServer {
 	}
 
 	@Override
-	public void onMessage(final WebSocket conn, final String message) {
-		// TODO Auto-generated method stub
+	public void onMessage(final WebSocket ws, final String message) {
+		players.forEach((k, v) -> v.send(players.get(ws.getRemoteSocketAddress()).getID() + ": " + message));
 	}
 
 	public static World getWorld(final String world) {
