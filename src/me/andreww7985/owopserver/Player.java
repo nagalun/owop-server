@@ -43,6 +43,9 @@ public class Player {
 
 	public void putPixel(final int x, final int y, final int rgb) {
 		final Chunk chunk = Server.getWorld(world).getChunk(x >> 4, y >> 4);
+		if (chunk.getPixel(x, y) == rgb) {
+			return;
+		}
 		chunk.setPixel(x, y, rgb);
 		Server.getWorld(world).pixelUpdates.add(new PixelUpdate(x, y, rgb));
 	}
