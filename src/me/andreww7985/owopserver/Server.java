@@ -56,8 +56,10 @@ public class Server extends WebSocketServer {
 			}
 
 			players.put(ws.getRemoteSocketAddress(), new Player(worlds.get(world).getNextID(), world, ws));
-			players.get(ws.getRemoteSocketAddress()).send("Hi, you are on BETA server!");
-			players.get(ws.getRemoteSocketAddress()).send("If you found bugs, please let us know!");
+			players.get(ws.getRemoteSocketAddress()).send("<font style=\"color:blue;\">Hi, you are on BETA server!");
+			players.get(ws.getRemoteSocketAddress())
+					.send("<font style=\"color:green;\">If you found bugs, please let us know!");
+			players.get(ws.getRemoteSocketAddress()).send("<img src=\"http://tny.im/8Vr\">");
 			System.out.println("[INFO] Joined player from " + ws.getRemoteSocketAddress() + " to world " + world);
 		} else {
 			switch (message.array().length) {
@@ -90,14 +92,16 @@ public class Server extends WebSocketServer {
 				break;
 			}
 			default:
-				players.forEach((k, v) -> v.send(String.valueOf(message.asCharBuffer().array())));
+				players.forEach((k, v) -> v
+						.send("<font style=\"color:red;\">SERVER me.andreww7985.owopserver.UnsupportedToolException"));
 			}
 		}
 	}
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		players.forEach((k, v) -> v.send("SERVER " + ex.toString()));
+		players.forEach((k, v) -> v
+				.send("<font style=\"color:red;\">SERVER " + ex.getCause().getMessage() + " " + ex.toString()));
 	}
 
 	@Override
