@@ -119,8 +119,21 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, final String message) {
-		final int id = players.get(ws.getRemoteSocketAddress()).getID();
-		players.forEach((k, v) -> v.send(id + ": " + message));
+		final Player player = players.get(ws.getRemoteSocketAddress());
+		final int size = message.length();
+		if(player != null && size <= 80 && message.codePointAt(size - 1) == 10) {
+			final int id = player.getID();
+			final String escapedmsg = message.trim()
+					.replace("&", "&amp;")
+					.replace("<", "&lt;")
+					.replace(">", "&gt;")
+					.replace("\"", "&quot;")
+					.replace("'", "&#x27;")
+					.replace("/", "&#x2F;");
+			if(!escapedmsg.isEmpty()) {
+				players.forEach((k, v) -> v.send(id + ": " + escapedmsg));
+			}
+		}
 	}
 
 	public static World getWorld(final String world) {
