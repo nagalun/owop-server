@@ -3,7 +3,7 @@ package me.andreww7985.owopserver;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -12,83 +12,84 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 public class Server extends WebSocketServer {
-	private static HashMap<InetSocketAddress, Player> players = new HashMap<InetSocketAddress, Player>();
-	private static HashMap<String, World> worlds = new HashMap<String, World>();
+	private static ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
+	private static ConcurrentHashMap<String, World> worlds = new ConcurrentHashMap<String, World>();
 	private static String admPass;
 
 	public Server(final String admPass, final int port) throws Exception {
 		super(new InetSocketAddress(port));
+		InetSocketAddress addr = this.getAddress();
 		Server.admPass = admPass;
-		System.out.println("[INFO] Admin password is " + Server.admPass);
-		System.out.println("[INFO] Starting server on port " + this.getAddress().getPort() + ", IP: "
-				+ this.getAddress().getHostName());
+		Logger.info("Admin password is '" + Server.admPass + "'");
+		Logger.info("Starting server on port " + addr.getPort()
+				+ ", IP: " + addr.getHostName());
 	}
 
 	@Override
 	public void onOpen(final WebSocket ws, final ClientHandshake handshake) {
-		System.out.println("[INFO] Connected new player from " + ws.getRemoteSocketAddress());
-		if (players.containsKey(ws.getRemoteSocketAddress())) {
-			System.err.println("[ERROR] Connected player from used IP!");
+		InetSocketAddress addr = ws.getRemoteSocketAddress();
+		Logger.info("Connected new player from " + addr);
+		if (players.containsKey(addr)) { /* Should never happen */
+			Logger.err("Connected player from used IP!");
 			return;
 		}
 	}
 
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
-		System.out.println("[INFO] Disconnected player from " + ws.getRemoteSocketAddress());
-		if (players.containsKey(ws.getRemoteSocketAddress())) {
-			players.remove(ws.getRemoteSocketAddress());
+		InetSocketAddress addr = ws.getRemoteSocketAddress();
+		Player player = players.get(addr);
+		Logger.info("Disconnected player from " + addr);
+		if(player != null) {
+			World world = player.getWorld();
+			world.playerLeft(player);
+			players.remove(addr);
 		}
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
-		if (!players.containsKey(ws.getRemoteSocketAddress())) {
+		InetSocketAddress addr = ws.getRemoteSocketAddress();
+		Player player = players.get(addr);
+		message.order(ByteOrder.LITTLE_ENDIAN);
+		if (player == null) {
 			final byte[] bytes = message.array();
-			String world = "";
+			String worldname = "";
 
 			for (int i = 0; i < bytes.length - 2; i++) {
-				world += (char) bytes[i];
+				worldname += (char) bytes[i];
 			}
 
-			if (!worlds.containsKey(world)) {
-				worlds.put(world, new World());
+			World world = worlds.get(worldname);
+			if (world == null) {
+				/* Create the world if it doesn't exist */
+				world = new World();
+				worlds.put(worldname, world);
 			}
 
-			players.put(ws.getRemoteSocketAddress(), new Player(worlds.get(world).getNextID(), world, ws));
-			players.get(ws.getRemoteSocketAddress()).send("<font style=\"color:blue;\">Hi, you are on BETA server!");
-			players.get(ws.getRemoteSocketAddress())
-					.send("<font style=\"color:green;\">If you found bugs, please let us know!");
-			players.get(ws.getRemoteSocketAddress()).send("<img src=\"http://tny.im/8Vr\">");
-			System.out.println("[INFO] Joined player from " + ws.getRemoteSocketAddress() + " to world " + world);
+			player = new Player(world.getNextID(), world, ws);
+			players.put(addr, player);
+			player.send("<font style=\"color:blue;\">Hi, you are on BETA server!");
+			player.send("<font style=\"color:green;\">If you found bugs, please let us know!");
+			player.send("<img src=\"http://tny.im/8Vr\">");
+			Logger.info("Joined player from " + addr + " to world " + worldname);
 		} else {
 			switch (message.array().length) {
 			case 8: {
-				message.order(ByteOrder.LITTLE_ENDIAN);
 				final int x = message.getInt(0), y = message.getInt(4);
-				players.get(ws.getRemoteSocketAddress()).getChunk(x, y);
+				player.getChunk(x, y);
 				break;
 			}
 			case 11: {
-				message.order(ByteOrder.LITTLE_ENDIAN);
-				final ByteBuffer temp = ByteBuffer.allocate(14);
-				temp.order(ByteOrder.LITTLE_ENDIAN);
-				temp.put(message);
-				final int x = temp.getInt(0), y = temp.getInt(4);
-				final int rgb = ((temp.getShort(8) & 0xFF) << 16) | ((temp.getShort(9) & 0xFF) << 8)
-						| ((temp.getShort(10)) & 0xFF);
-				players.get(ws.getRemoteSocketAddress()).putPixel(x, y, rgb);
+				final int x = message.getInt(0), y = message.getInt(4);
+				final int rgb = message.getInt(7) >> 8 & 0xFFFFFF;
+				player.putPixel(x, y, rgb);
 				break;
 			}
 			case 12: {
-				message.order(ByteOrder.LITTLE_ENDIAN);
-				final ByteBuffer temp = ByteBuffer.allocate(15);
-				temp.order(ByteOrder.LITTLE_ENDIAN);
-				temp.put(message);
-				final int x = temp.getInt(0), y = temp.getInt(4), tool = (temp.getShort(8) & 0xFF);
-				final int rgb = ((temp.getShort(9) & 0xFF) << 16) | ((temp.getShort(10) & 0xFF) << 8)
-						| ((temp.getShort(11)) & 0xFF);
-				players.get(ws.getRemoteSocketAddress()).update(x, y, (byte) tool, rgb);
+				final int x = message.getInt(0), y = message.getInt(4), tool = message.get(8);
+				final int rgb = message.getInt(8) >> 8 & 0xFFFFFF;
+				player.update(x, y, (byte) tool, rgb);
 				break;
 			}
 			default:
@@ -110,7 +111,7 @@ public class Server extends WebSocketServer {
 		timer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
-				players.forEach((k, v) -> v.sendUpdates());
+				players.forEach((k, v) -> v.getWorld().sendUpdates(v));
 				worlds.forEach((k, v) -> v.clearUpdates());
 			}
 		}, 0, 50);
@@ -118,7 +119,8 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, final String message) {
-		players.forEach((k, v) -> v.send(players.get(ws.getRemoteSocketAddress()).getID() + ": " + message));
+		final int id = players.get(ws.getRemoteSocketAddress()).getID();
+		players.forEach((k, v) -> v.send(id + ": " + message));
 	}
 
 	public static World getWorld(final String world) {
