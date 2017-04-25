@@ -31,20 +31,20 @@ public class Player {
 		buffer.put(0, (byte) 0x02);
 		buffer.putInt(1, x);
 		buffer.putInt(5, y);
-		/*for (int yy = 0; yy < 16; yy++) {
-			for (int xx = 0; xx < 16; xx++) {
-				int rgb = chunk.getPixel(xx, yy);
-				buffer.put(9 + (yy * 16 + xx) * 3, (byte) (rgb & 0xFF));
-				buffer.put(10 + (yy * 16 + xx) * 3, (byte) (rgb >> 8 & 0xFF));
-				buffer.put(11 + (yy * 16 + xx) * 3, (byte) (rgb >> 16 & 0xFF));
-			}
-		}*/
+		/*
+		 * for (int yy = 0; yy < 16; yy++) { for (int xx = 0; xx < 16; xx++) {
+		 * int rgb = chunk.getPixel(xx, yy); buffer.put(9 + (yy * 16 + xx) * 3,
+		 * (byte) (rgb & 0xFF)); buffer.put(10 + (yy * 16 + xx) * 3, (byte) (rgb
+		 * >> 8 & 0xFF)); buffer.put(11 + (yy * 16 + xx) * 3, (byte) (rgb >> 16
+		 * & 0xFF)); } }
+		 */
 		buffer.position(9);
 		buffer.put(chunk.getByteArray(), 0, 16 * 16 * 3);
 		send(buffer.array());
 	}
 
 	public void putPixel(final int x, final int y, final int rgb) {
+		// TODO: Implement timeout
 		world.putPixel(x, y, rgb);
 	}
 
@@ -66,6 +66,7 @@ public class Player {
 		lastX = x;
 		lastY = y;
 		if (sameMod >= 20) {
+			// TODO: Kick bots
 			Logger.warn("Found BOT with id " + id + "! Disconnecting...");
 		}
 		world.playerMoved(this);
@@ -86,7 +87,7 @@ public class Player {
 	public short getTool() {
 		return tool;
 	}
-	
+
 	public World getWorld() {
 		return world;
 	}

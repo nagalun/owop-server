@@ -14,8 +14,13 @@ public class World {
 	private final HashSet<Player> playerUpdates = new HashSet<Player>();
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
-	private int playersId;
-	
+	private final String name;
+	private int playersId, online;
+
+	public World(final String name) {
+		this.name = name;
+	}
+
 	/* Single value key for two integers */
 	private static long getChunkKey(final int x, final int y) {
 		return ((long) x << 32) + y;
@@ -42,10 +47,12 @@ public class World {
 			}
 		}
 		chunks.put(World.getChunkKey(x, y), chunk);
-		/* Return the chunk so we don't have to search for it on the map later */
+		/*
+		 * Return the chunk so we don't have to search for it on the map later
+		 */
 		return chunk;
 	}
-	
+
 	public void putPixel(final int x, final int y, final int rgb) {
 		/* Should probably only load it when requested, not painting a pixel */
 		final Chunk chunk = getChunk(x >> 4, y >> 4);
@@ -57,34 +64,37 @@ public class World {
 		pixelUpdates.add(new PixelUpdate(x, y, rgb));
 		updateLock.unlock();
 	}
-	
+
 	public void playerMoved(final Player player) {
 		updateLock.lock();
 		playerUpdates.add(player);
 		updateLock.unlock();
 	}
-	
+
+	public void playerJoined(final Player player) {
+		online++;
+	}
+
 	public void playerLeft(final Player player) {
+		online--;
 		updateLock.lock();
 		playerDisconnects.add(player.getID());
 		updateLock.unlock();
 	}
-	
-	public void sendUpdates(Player player) {
+
+	public void sendUpdates(final Player player) {
 		updateLock.lock();
-		final int players = playerUpdates.size(),
-				pixels = pixelUpdates.size(),
-				disconnects = playerDisconnects.size();
-		
+		final int players = playerUpdates.size(), pixels = pixelUpdates.size(), disconnects = playerDisconnects.size();
+
 		if (players + pixels + disconnects == 0) {
 			updateLock.unlock();
 			return;
 		}
-		
+
 		final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 16 + pixels * 11 + disconnects * 4);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 0x01);
-		
+
 		/* Problems happen when exceeding > 255 player updates */
 		buffer.put((byte) players);
 		playerUpdates.forEach(p -> {
@@ -92,31 +102,43 @@ public class World {
 			buffer.putInt(p.getID());
 			buffer.putInt(p.getX());
 			buffer.putInt(p.getY());
-			buffer.put((byte) (rgb       & 0xFF));
-			buffer.put((byte) (rgb >> 8  & 0xFF));
+			buffer.put((byte) (rgb & 0xFF));
+			buffer.put((byte) (rgb >> 8 & 0xFF));
 			buffer.put((byte) (rgb >> 16 & 0xFF));
 			buffer.put((byte) (p.getTool() & 0xFF));
 		});
-		
-		/* Same here, but max is 65535*/
+
+		/* Same here, but max is 65535 */
 		buffer.putShort((short) pixels);
 		for (int i = 0; i < pixels; i++) {
-			PixelUpdate p = pixelUpdates.get(i);
+			final PixelUpdate p = pixelUpdates.get(i);
 			buffer.putInt(p.x);
 			buffer.putInt(p.y);
-			buffer.put((byte) (p.rgb       & 0xFF));
-			buffer.put((byte) (p.rgb >> 8  & 0xFF));
+			buffer.put((byte) (p.rgb & 0xFF));
+			buffer.put((byte) (p.rgb >> 8 & 0xFF));
 			buffer.put((byte) (p.rgb >> 16 & 0xFF));
 		}
-		
+
 		/* ...and here */
 		buffer.put((byte) disconnects);
 		playerDisconnects.forEach(id -> {
 			buffer.putInt(id);
 		});
-		
+
 		updateLock.unlock();
 		player.send(buffer.array());
+	}
+
+	public int getOnline() {
+		return online;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void save() {
+		// TODO: Implement world saving
 	}
 
 	public void clearUpdates() {

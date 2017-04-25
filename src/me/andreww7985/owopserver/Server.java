@@ -3,9 +3,9 @@ package me.andreww7985.owopserver;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -18,38 +18,43 @@ public class Server extends WebSocketServer {
 
 	public Server(final String admPass, final int port) throws Exception {
 		super(new InetSocketAddress(port));
-		InetSocketAddress addr = this.getAddress();
 		Server.admPass = admPass;
 		Logger.info("Admin password is '" + Server.admPass + "'");
-		Logger.info("Starting server on port " + addr.getPort()
-				+ ", IP: " + addr.getHostName());
+		Logger.info("Starting server on port " + this.getAddress().getPort());
 	}
 
 	@Override
 	public void onOpen(final WebSocket ws, final ClientHandshake handshake) {
-		InetSocketAddress addr = ws.getRemoteSocketAddress();
+		final InetSocketAddress addr = ws.getRemoteSocketAddress();
 		Logger.info("Connected new player from " + addr);
-		if (players.containsKey(addr)) { /* Should never happen */
-			Logger.err("Connected player from used IP!");
-			return;
-		}
+		/*
+		 * if (players.containsKey(addr)) { /* Should never happen Logger.err(
+		 * "Connected player from used IP!"); return; }
+		 */
 	}
 
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
-		InetSocketAddress addr = ws.getRemoteSocketAddress();
-		Player player = players.get(addr);
+		final InetSocketAddress addr = ws.getRemoteSocketAddress();
+		final Player player = players.get(addr);
 		Logger.info("Disconnected player from " + addr);
-		if(player != null) {
-			World world = player.getWorld();
+		if (player != null) {
+			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
+			if (world.getOnline() == 0) {
+				final String worldname = world.getName();
+				world.save();
+				worlds.remove(worldname);
+				Logger.info("Unloaded world '" + worldname + "'");
+				// TODO: Fix memory leaks
+			}
 		}
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
-		InetSocketAddress addr = ws.getRemoteSocketAddress();
+		final InetSocketAddress addr = ws.getRemoteSocketAddress();
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
@@ -60,21 +65,26 @@ public class Server extends WebSocketServer {
 				worldname += (char) bytes[i];
 			}
 
+			// TODO: Make world name and last 2 bytes check
+
 			World world = worlds.get(worldname);
 			if (world == null) {
 				/* Create the world if it doesn't exist */
-				world = new World();
+				world = new World(worldname);
 				worlds.put(worldname, world);
+				Logger.info("Loaded world '" + worldname + "'");
 			}
 
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
+			world.playerJoined(player);
 			player.send("<font style=\"color:blue;\">Hi, you are on BETA server!");
 			player.send("<font style=\"color:green;\">If you found bugs, please let us know!");
 			player.send("<img src=\"http://tny.im/8Vr\">");
-			Logger.info("Joined player from " + addr + " to world " + worldname);
+			Logger.info("Joined player from " + addr + " to world '" + worldname + "'");
 		} else {
 			switch (message.array().length) {
+			// TODO: Implement more tools
 			case 8: {
 				final int x = message.getInt(0), y = message.getInt(4);
 				player.getChunk(x, y);
@@ -93,8 +103,12 @@ public class Server extends WebSocketServer {
 				break;
 			}
 			default:
-				players.forEach((k, v) -> v
-						.send("<font style=\"color:red;\">SERVER me.andreww7985.owopserver.UnsupportedToolException"));
+				/*
+				 * players.forEach((k, v) -> v .send(
+				 * "<font style=\"color:red;\">SERVER me.andreww7985.owopserver.UnsupportedToolException"
+				 * )); Just ignore
+				 */
+				break;
 			}
 		}
 	}
@@ -119,18 +133,15 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, final String message) {
+		// TODO: Implement commands, timeout
 		final Player player = players.get(ws.getRemoteSocketAddress());
 		final int size = message.length();
-		if(player != null && size <= 80 && message.codePointAt(size - 1) == 10) {
+		if (player != null && size <= 80 && message.codePointAt(size - 1) == 10) {
 			final int id = player.getID();
-			final String escapedmsg = message.trim()
-					.replace("&", "&amp;")
-					.replace("<", "&lt;")
-					.replace(">", "&gt;")
-					.replace("\"", "&quot;")
-					.replace("'", "&#x27;")
-					.replace("/", "&#x2F;");
-			if(!escapedmsg.isEmpty()) {
+			final String escapedmsg = message.trim().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+					.replace("\"", "&quot;").replace("'", "&#x27;").replace("/", "&#x2F;");
+			if (!escapedmsg.isEmpty()) {
+				Logger.chat(message);
 				players.forEach((k, v) -> v.send(id + ": " + escapedmsg));
 			}
 		}
