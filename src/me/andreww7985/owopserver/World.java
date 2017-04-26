@@ -95,7 +95,7 @@ public class World {
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 1);
 
-		/* Problems happen when exceeding > 255 player updates */
+		// TODO: Fix possible error with 255+ player updates
 		buffer.put((byte) players);
 		playerUpdates.forEach(p -> {
 			final int rgb = p.getRGB();
@@ -108,7 +108,7 @@ public class World {
 			buffer.put((byte) (p.getTool() & 0xFF));
 		});
 
-		/* Same here, but max is 65535 */
+		// TODO: Fix possible error with 65535+ pixel updates
 		buffer.putShort((short) pixels);
 		pixelUpdates.forEach(p -> {
 			buffer.putInt(p.x);
@@ -118,7 +118,7 @@ public class World {
 			buffer.put((byte) (p.rgb >> 16 & 0xFF));
 		});
 
-		/* ...and here */
+		// TODO: Fix possible error with 255+ player disconnects
 		buffer.put((byte) disconnects);
 		playerDisconnects.forEach(id -> {
 			buffer.putInt(id);

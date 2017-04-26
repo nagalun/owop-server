@@ -66,7 +66,6 @@ public class Server extends WebSocketServer {
 
 			World world = worlds.get(worldname);
 			if (world == null) {
-				/* Create the world if it doesn't exist */
 				world = new World(worldname);
 				worlds.put(worldname, world);
 				Logger.info("Loaded world '" + worldname + "'");
@@ -75,10 +74,12 @@ public class Server extends WebSocketServer {
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
+			player.send(ChatHelper.LIME + "Joined world '" + worldname + "'. Your ID: " + player.getID() + ". Online: "
+					+ world.getOnline());
 			player.send(
 					ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA" + ChatHelper.YELLOW + " server!");
 			player.send(ChatHelper.YELLOW + "If you found bugs, please let us know!");
-			Logger.info("Joined player from " + addr + " to world '" + worldname + "'");
+			Logger.info("Joined player from " + addr + " to world '" + worldname + "' with ID " + player.getID());
 		} else {
 			switch (message.array().length) {
 			// TODO: Implement more tools
@@ -108,7 +109,8 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		Logger.err("Exception " + ex.getMessage() + " " + ex.getStackTrace()[ex.getStackTrace().length - 1].toString());
+		Logger.err("Exception " + ex.getMessage() + " "
+				+ (ex.getStackTrace().length > 0 ? ex.getStackTrace()[ex.getStackTrace().length - 1].toString() : ""));
 	}
 
 	@Override
@@ -147,11 +149,14 @@ public class Server extends WebSocketServer {
 								Logger.warn(player.getID() + " is now admin");
 								player.setAdmin(true);
 							} else {
-								// TODO: Kick player
+								Logger.warn(player.getID() + " used wrong password. Disconnecting...");
+								player.kick();
 							}
 						} else {
-							player.send(ChatHelper.RED + "Usage: /admin <password>");
+							player.send(ChatHelper.RED + "Usage: /admin &ltpassword&gt");
 						}
+					} else if (parameters[0].equals("online")) {
+						player.send(ChatHelper.LIME + "Current online: " + player.getWorld().getOnline());
 					} else {
 						player.send(ChatHelper.RED + "Unknown command!");
 					}
@@ -161,6 +166,7 @@ public class Server extends WebSocketServer {
 				}
 			}
 		}
+
 	}
 
 	public static void broadcast(final String text, final boolean adminOnly) {

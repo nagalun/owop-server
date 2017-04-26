@@ -47,20 +47,22 @@ public class Player {
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
-		if (((x % 16) + 16) % 16 == lastXMod && x != lastX) {
-			sameMod++;
-		} else {
-			sameMod = 0;
-		}
-		if (((y % 16) + 16) % 16 == lastYMod && y != lastY) {
-			sameMod++;
-		} else {
-			sameMod = 0;
+		if (x != lastX || y != lastY) {
+			if (((x % 16) + 16) % 16 == lastXMod) {
+				sameMod++;
+			} else {
+				sameMod = 0;
+			}
+			if (((y % 16) + 16) % 16 == lastYMod) {
+				sameMod++;
+			} else {
+				sameMod = 0;
+			}
 		}
 		lastX = x;
 		lastY = y;
-		if (sameMod >= 20) {
-			// TODO: Kick bots
+		if (sameMod >= 10) {
+			kick();
 			Logger.warn("Found BOT with id " + id + "! Disconnecting...");
 		}
 		world.playerMoved(this);
@@ -115,5 +117,9 @@ public class Player {
 		if (admin) {
 			send(new byte[] { (byte) 4 });
 		}
+	}
+
+	public void kick() {
+		webSocket.close();
 	}
 }
