@@ -93,7 +93,7 @@ public class World {
 
 		final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 16 + pixels * 11 + disconnects * 4);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
-		buffer.put((byte) 0x01);
+		buffer.put((byte) 1);
 
 		/* Problems happen when exceeding > 255 player updates */
 		buffer.put((byte) players);
@@ -110,14 +110,13 @@ public class World {
 
 		/* Same here, but max is 65535 */
 		buffer.putShort((short) pixels);
-		for (int i = 0; i < pixels; i++) {
-			final PixelUpdate p = pixelUpdates.get(i);
+		pixelUpdates.forEach(p -> {
 			buffer.putInt(p.x);
 			buffer.putInt(p.y);
 			buffer.put((byte) (p.rgb & 0xFF));
 			buffer.put((byte) (p.rgb >> 8 & 0xFF));
 			buffer.put((byte) (p.rgb >> 16 & 0xFF));
-		}
+		});
 
 		/* ...and here */
 		buffer.put((byte) disconnects);

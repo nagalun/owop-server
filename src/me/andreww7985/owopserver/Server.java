@@ -3,6 +3,7 @@ package me.andreww7985.owopserver;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,10 +28,6 @@ public class Server extends WebSocketServer {
 	public void onOpen(final WebSocket ws, final ClientHandshake handshake) {
 		final InetSocketAddress addr = ws.getRemoteSocketAddress();
 		Logger.info("Connected new player from " + addr);
-		/*
-		 * if (players.containsKey(addr)) { /* Should never happen Logger.err(
-		 * "Connected player from used IP!"); return; }
-		 */
 	}
 
 	@Override
@@ -42,13 +39,13 @@ public class Server extends WebSocketServer {
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
-			if (world.getOnline() == 0) {
-				final String worldname = world.getName();
-				world.save();
-				worlds.remove(worldname);
-				Logger.info("Unloaded world '" + worldname + "'");
-				// TODO: Fix memory leaks
-			}
+			// TODO: Enable world unloading when saving is done
+			/*
+			 * if (world.getOnline() == 0) { final String worldname =
+			 * world.getName(); world.save(); worlds.remove(worldname);
+			 * Logger.info("Unloaded world '" + worldname + "'"); // TODO: Fix
+			 * memory leaks }
+			 */
 		}
 	}
 
@@ -78,9 +75,9 @@ public class Server extends WebSocketServer {
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
-			player.send("<font style=\"color:blue;\">Hi, you are on BETA server!");
-			player.send("<font style=\"color:green;\">If you found bugs, please let us know!");
-			player.send("<img src=\"http://tny.im/8Vr\">");
+			player.send(
+					ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA" + ChatHelper.YELLOW + " server!");
+			player.send(ChatHelper.YELLOW + "If you found bugs, please let us know!");
 			Logger.info("Joined player from " + addr + " to world '" + worldname + "'");
 		} else {
 			switch (message.array().length) {
@@ -103,11 +100,7 @@ public class Server extends WebSocketServer {
 				break;
 			}
 			default:
-				/*
-				 * players.forEach((k, v) -> v .send(
-				 * "<font style=\"color:red;\">SERVER me.andreww7985.owopserver.UnsupportedToolException"
-				 * )); Just ignore
-				 */
+				Logger.warn("Unknown packet from " + player.getID() + " with " + message.array().length + " bytes!");
 				break;
 			}
 		}
@@ -115,8 +108,7 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		players.forEach((k, v) -> v
-				.send("<font style=\"color:red;\">SERVER " + ex.getCause().getMessage() + " " + ex.toString()));
+		Logger.err("Exception " + ex.getMessage() + " " + ex.getStackTrace()[ex.getStackTrace().length - 1].toString());
 	}
 
 	@Override
@@ -132,18 +124,54 @@ public class Server extends WebSocketServer {
 	}
 
 	@Override
-	public void onMessage(final WebSocket ws, final String message) {
-		// TODO: Implement commands, timeout
+	public void onMessage(final WebSocket ws, String message) {
+		// TODO: Implement timeout
 		final Player player = players.get(ws.getRemoteSocketAddress());
-		final int size = message.length();
-		if (player != null && size <= 80 && message.codePointAt(size - 1) == 10) {
+		final String trimmed = message.trim();
+		final int size = trimmed.length();
+		if (player != null && size <= 80 && size > 1 && message.codePointAt(message.length() - 1) == 10) {
 			final int id = player.getID();
-			final String escapedmsg = message.trim().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-					.replace("\"", "&quot;").replace("'", "&#x27;").replace("/", "&#x2F;");
-			if (!escapedmsg.isEmpty()) {
-				Logger.chat(message);
-				players.forEach((k, v) -> v.send(id + ": " + escapedmsg));
+			if (!player.isAdmin()) {
+				message = trimmed.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+						.replace("\"", "&quot;").replace("'", "&#x27;").replace("/", "&#x2F;");
 			}
+			if (!message.isEmpty()) {
+				if (trimmed.startsWith("/")) {
+					final String[] parameters = trimmed.substring(1).toLowerCase().split(" ");
+					Logger.command(player.getID() + " issued " + Arrays.toString(parameters));
+					// TODO: More commands
+					if (parameters[0].equals("admin")) {
+						if (parameters.length > 1) {
+							if (parameters[1].equals(admPass)) {
+								player.send(ChatHelper.LIME + "Admin mode enabled!");
+								Logger.warn(player.getID() + " is now admin");
+								player.setAdmin(true);
+							} else {
+								// TODO: Kick player
+							}
+						} else {
+							player.send(ChatHelper.RED + "Usage: /admin <password>");
+						}
+					} else {
+						player.send(ChatHelper.RED + "Unknown command!");
+					}
+				} else {
+					Logger.chat(message);
+					broadcast((player.isAdmin() ? ChatHelper.ORANGE : "") + id + ": " + message, false);
+				}
+			}
+		}
+	}
+
+	public static void broadcast(final String text, final boolean adminOnly) {
+		if (adminOnly) {
+			players.forEach((k, v) -> {
+				if (v.isAdmin()) {
+					v.send(text);
+				}
+			});
+		} else {
+			players.forEach((k, v) -> v.send(text));
 		}
 	}
 

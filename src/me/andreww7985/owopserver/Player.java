@@ -12,6 +12,7 @@ public class Player {
 	private final WebSocket webSocket;
 	private int x, y, rgb, lastX, lastY;
 	private final int id;
+	private boolean admin;
 
 	public Player(final int id, final World world, final WebSocket webSocket) {
 		this.id = id;
@@ -19,8 +20,8 @@ public class Player {
 		this.webSocket = webSocket;
 		final ByteBuffer buffer = ByteBuffer.allocate(9);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
-		buffer.put(0, (byte) 0x00);
-		buffer.putInt(1, id);
+		buffer.put((byte) 0);
+		buffer.putInt(id);
 		send(buffer.array());
 	}
 
@@ -28,16 +29,9 @@ public class Player {
 		final ByteBuffer buffer = ByteBuffer.allocate(777);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		final Chunk chunk = world.getChunk(x, y);
-		buffer.put(0, (byte) 0x02);
-		buffer.putInt(1, x);
-		buffer.putInt(5, y);
-		/*
-		 * for (int yy = 0; yy < 16; yy++) { for (int xx = 0; xx < 16; xx++) {
-		 * int rgb = chunk.getPixel(xx, yy); buffer.put(9 + (yy * 16 + xx) * 3,
-		 * (byte) (rgb & 0xFF)); buffer.put(10 + (yy * 16 + xx) * 3, (byte) (rgb
-		 * >> 8 & 0xFF)); buffer.put(11 + (yy * 16 + xx) * 3, (byte) (rgb >> 16
-		 * & 0xFF)); } }
-		 */
+		buffer.put((byte) 2);
+		buffer.putInt(x);
+		buffer.putInt(y);
 		buffer.position(9);
 		buffer.put(chunk.getByteArray(), 0, 16 * 16 * 3);
 		send(buffer.array());
@@ -109,6 +103,17 @@ public class Player {
 	public void send(final String data) {
 		if (isConnected()) {
 			webSocket.send(data);
+		}
+	}
+
+	public boolean isAdmin() {
+		return admin;
+	}
+
+	public void setAdmin(final boolean admin) {
+		this.admin = admin;
+		if (admin) {
+			send(new byte[] { (byte) 4 });
 		}
 	}
 }
