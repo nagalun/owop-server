@@ -146,7 +146,7 @@ public class World {
 		for (int yy = 0; yy < 16; yy++) {
 			for (int xx = 0; xx < 16; xx++) {
 				chunk.setPixel(xx, yy, 0xFFFFFF);
-				if (chunk.getPixel(xx, yy) != 0xFF) {
+				if (chunk.getPixel(xx, yy) != 0xFFFFFF) {
 					pixelUpdates.add(new PixelUpdate(x * 16 + xx, y * 16 + yy, 0xFFFFFF));
 				}
 			}
