@@ -39,7 +39,7 @@ public class Player {
 
 	public void putPixel(final int x, final int y, final int rgb) {
 		// TODO: Implement timeout
-		world.putPixel(x, y, rgb);
+		world.setPixel(x, y, rgb);
 	}
 
 	public void update(final int x, final int y, final byte tool, final int rgb) {
@@ -60,7 +60,9 @@ public class Player {
 			}
 		}
 		lastX = x;
+		lastXMod = (byte) (x % 16);
 		lastY = y;
+		lastYMod = (byte) (y % 16);
 		if (sameMod >= 10) {
 			kick();
 			Logger.warn("Found BOT with id " + id + "! Disconnecting...");

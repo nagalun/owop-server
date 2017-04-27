@@ -16,6 +16,7 @@ public class Server extends WebSocketServer {
 	private static ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
 	private static ConcurrentHashMap<String, World> worlds = new ConcurrentHashMap<String, World>();
 	private static String admPass;
+	private static int totalChunksLoaded, totalOnline;
 
 	public Server(final String admPass, final int port) throws Exception {
 		super(new InetSocketAddress(port));
@@ -39,6 +40,7 @@ public class Server extends WebSocketServer {
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
+			totalOnline--;
 			// TODO: Enable world unloading when saving is done
 			/*
 			 * if (world.getOnline() == 0) { final String worldname =
@@ -80,12 +82,22 @@ public class Server extends WebSocketServer {
 					ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA" + ChatHelper.YELLOW + " server!");
 			player.send(ChatHelper.YELLOW + "If you found bugs, please let us know!");
 			Logger.info("Joined player from " + addr + " to world '" + worldname + "' with ID " + player.getID());
+			totalOnline++;
 		} else {
 			switch (message.array().length) {
 			// TODO: Implement more tools
 			case 8: {
 				final int x = message.getInt(0), y = message.getInt(4);
 				player.getChunk(x, y);
+				break;
+			}
+			case 9: {
+				final int x = message.getInt(0), y = message.getInt(4);
+				if (!player.isAdmin()) {
+					player.kick();
+					return;
+				}
+				player.getWorld().clearChunk(x, y);
 				break;
 			}
 			case 11: {
@@ -157,8 +169,27 @@ public class Server extends WebSocketServer {
 						}
 					} else if (parameters[0].equals("online")) {
 						player.send(ChatHelper.LIME + "Current online: " + player.getWorld().getOnline());
-					} else {
-						player.send(ChatHelper.RED + "Unknown command!");
+					} else if (parameters[0].equals("kick") && player.isAdmin()) {
+						if (parameters.length > 1) {
+							final int id1 = Integer.parseInt(parameters[1]);
+							players.forEach((k, v) -> {
+								if (v.getID() == id1) {
+									v.kick();
+								}
+							});
+							player.send(ChatHelper.LIME + "Kicked " + id1 + "!");
+						} else {
+							player.send(ChatHelper.RED + "Usage: /kick &ltID&gt");
+						}
+					} else if (parameters[0].equals("info") && player.isAdmin()) {
+						player.send(ChatHelper.LIME + "Total online: " + totalOnline + ". Total chunks loaded: "
+								+ totalChunksLoaded);
+					} else if (parameters[0].equals("help") && player.isAdmin()) {
+						player.send(ChatHelper.LIME + "/help - show help");
+						player.send(ChatHelper.LIME + "/online - show online in current world");
+						player.send(ChatHelper.LIME + "/info - show total online and loaded chunks");
+						player.send(ChatHelper.LIME + "/admin &ltpassword&gt - enable admin mode");
+						player.send(ChatHelper.LIME + "/kick &ltID&gt - kick player with ID");
 					}
 				} else {
 					Logger.chat(message);
@@ -183,5 +214,17 @@ public class Server extends WebSocketServer {
 
 	public static World getWorld(final String world) {
 		return worlds.get(world);
+	}
+
+	public static void chunksLoaded(final int num) {
+		totalChunksLoaded += num;
+	}
+
+	public static void chunksUnloaded(final int num) {
+		totalChunksLoaded -= num;
+	}
+
+	public static int getChunksLoaded() {
+		return totalChunksLoaded;
 	}
 }
