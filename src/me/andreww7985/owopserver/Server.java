@@ -58,13 +58,18 @@ public class Server extends WebSocketServer {
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
 			final byte[] bytes = message.array();
+			if(message.getShort(bytes.length - 2) != 1337) {
+				Logger.warn("World name verification failed for: " + addr);
+				ws.close();
+				return;
+			}
 			String worldname = "";
 
 			for (int i = 0; i < bytes.length - 2; i++) {
 				worldname += (char) bytes[i];
 			}
 
-			// TODO: Make world name and last 2 bytes check
+			// TODO: Make world name check
 
 			World world = worlds.get(worldname);
 			if (world == null) {
@@ -107,8 +112,8 @@ public class Server extends WebSocketServer {
 				break;
 			}
 			case 12: {
-				final int x = message.getInt(0), y = message.getInt(4), tool = message.get(8);
-				final int rgb = message.getInt(8) >> 8 & 0xFFFFFF;
+				final int x = message.getInt(0), y = message.getInt(4), tool = message.get(11);
+				final int rgb = message.getInt(8) & 0xFFFFFF;
 				player.update(x, y, (byte) tool, rgb);
 				break;
 			}
