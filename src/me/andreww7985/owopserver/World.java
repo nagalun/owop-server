@@ -142,16 +142,15 @@ public class World {
 	}
 
 	public void clearChunk(final int x, final int y) {
-		final Chunk chunk = new Chunk();
+		final Chunk chunk = getChunk(x, y);
 		for (int yy = 0; yy < 16; yy++) {
 			for (int xx = 0; xx < 16; xx++) {
-				chunk.setPixel(xx, yy, 0xFFFFFF);
 				if (chunk.getPixel(xx, yy) != 0xFFFFFF) {
 					pixelUpdates.add(new PixelUpdate(x * 16 + xx, y * 16 + yy, 0xFFFFFF));
 				}
+				chunk.setPixel(xx, yy, 0xFFFFFF);
 			}
 		}
-		chunks.put(World.getChunkKey(x, y), chunk);
 	}
 
 	public void clearUpdates() {
