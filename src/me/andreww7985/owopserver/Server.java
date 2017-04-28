@@ -58,7 +58,7 @@ public class Server extends WebSocketServer {
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
 			final byte[] bytes = message.array();
-			if(message.getShort(bytes.length - 2) != 1337) {
+			if (message.getShort(bytes.length - 2) != 1337) {
 				Logger.warn("World name verification failed for: " + addr);
 				ws.close();
 				return;
@@ -136,8 +136,8 @@ public class Server extends WebSocketServer {
 		timer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
-				players.forEach((k, v) -> v.getWorld().sendUpdates(v));
-				worlds.forEach((k, v) -> v.clearUpdates());
+				players.forEach((k, player) -> player.getWorld().sendUpdates(player));
+				worlds.forEach((k, world) -> world.clearUpdates());
 			}
 		}, 0, 50);
 	}
@@ -162,7 +162,8 @@ public class Server extends WebSocketServer {
 					if (parameters[0].equals("admin")) {
 						if (parameters.length > 1) {
 							if (parameters[1].equals(admPass)) {
-								player.send(ChatHelper.LIME + "Admin mode enabled!");
+								player.send(
+										ChatHelper.LIME + "Admin mode enabled!  Type '/help' for a list of commands.");
 								Logger.warn(player.getID() + " is now admin");
 								player.setAdmin(true);
 							} else {
@@ -177,9 +178,9 @@ public class Server extends WebSocketServer {
 					} else if (parameters[0].equals("kick") && player.isAdmin()) {
 						if (parameters.length > 1) {
 							final int id1 = Integer.parseInt(parameters[1]);
-							players.forEach((k, v) -> {
-								if (v.getID() == id1) {
-									v.kick();
+							players.forEach((k, playerKick) -> {
+								if (playerKick.getID() == id1) {
+									playerKick.kick();
 								}
 							});
 							player.send(ChatHelper.LIME + "Kicked " + id1 + "!");
@@ -191,10 +192,12 @@ public class Server extends WebSocketServer {
 								+ totalChunksLoaded);
 					} else if (parameters[0].equals("help") && player.isAdmin()) {
 						player.send(ChatHelper.LIME + "/help - show help");
-						player.send(ChatHelper.LIME + "/online - show online in current world");
-						player.send(ChatHelper.LIME + "/info - show total online and loaded chunks");
-						player.send(ChatHelper.LIME + "/admin &ltpassword&gt - enable admin mode");
-						player.send(ChatHelper.LIME + "/kick &ltID&gt - kick player with ID");
+						player.send(ChatHelper.LIME + "/online - show online in current world.");
+						player.send(ChatHelper.LIME + "/info - show total online and loaded chunks.");
+						player.send(ChatHelper.LIME + "/admin &ltpassword&gt - enable admin mode.");
+						player.send(ChatHelper.LIME + "/kick &ltID&gt - kick player with ID.");
+					} else if (player.isAdmin()) {
+						player.send(ChatHelper.RED + "Unknown command! Type '/help' for a list of commands.");
 					}
 				} else {
 					Logger.chat(message);
@@ -207,13 +210,13 @@ public class Server extends WebSocketServer {
 
 	public static void broadcast(final String text, final boolean adminOnly) {
 		if (adminOnly) {
-			players.forEach((k, v) -> {
-				if (v.isAdmin()) {
-					v.send(text);
+			players.forEach((k, player) -> {
+				if (player.isAdmin()) {
+					player.send(text);
 				}
 			});
 		} else {
-			players.forEach((k, v) -> v.send(text));
+			players.forEach((k, player) -> player.send(text));
 		}
 	}
 

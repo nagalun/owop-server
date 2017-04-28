@@ -10,7 +10,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class World {
 	private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<Long, Chunk>();
 	private final ReentrantLock updateLock = new ReentrantLock();
-	/* Changed to Set to prevent multiple updates for the same player */
 	private final HashSet<Player> playerUpdates = new HashSet<Player>();
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
@@ -21,7 +20,6 @@ public class World {
 		this.name = name;
 	}
 
-	/* Single value key for two integers */
 	private static long getChunkKey(final int x, final int y) {
 		return ((long) x << 32) + y;
 	}
@@ -48,14 +46,10 @@ public class World {
 		}
 		chunks.put(World.getChunkKey(x, y), chunk);
 		Server.chunksLoaded(1);
-		/*
-		 * Return the chunk so we don't have to search for it on the map later
-		 */
 		return chunk;
 	}
 
 	public void setPixel(final int x, final int y, final int rgb) {
-		/* Should probably only load it when requested, not painting a pixel */
 		final Chunk chunk = getChunk(x >> 4, y >> 4);
 		if (chunk.getPixel(x & 0xF, y & 0xF) == rgb) {
 			return;
