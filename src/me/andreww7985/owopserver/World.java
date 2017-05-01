@@ -130,8 +130,9 @@ public class World {
 
 	public void save() {
 		chunks.forEach((key, chunk) -> {
-			if(chunk.shouldSave()) {
+			if (chunk.shouldSave()) {
 				wr.writeChunk(chunk, chunk.getX(), chunk.getY());
+				Server.chunksUnloaded(1);
 			}
 		});
 	}
