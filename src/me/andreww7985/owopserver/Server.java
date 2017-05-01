@@ -42,14 +42,13 @@ public class Server extends WebSocketServer {
 			players.remove(addr);
 			totalOnline--;
 			// TODO: Enable world unloading when saving is done
-			
 			if (world.getOnline() == 0) {
 				final String worldname = world.getName();
 				world.save();
 				worlds.remove(worldname);
-				Logger.info("Unloaded world '" + worldname + "'"); // TODO: Fix memory leaks
+				Logger.info("Unloaded world '" + worldname + "'");
+				// TODO: Check for memory leaks
 			}
-			
 		}
 	}
 
@@ -83,8 +82,7 @@ public class Server extends WebSocketServer {
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
-			player.send(ChatHelper.LIME + "Joined world '" + worldname + "'. Your ID: " + player.getID() + ". Online: "
-					+ world.getOnline());
+			player.send(ChatHelper.LIME + "Joined world '" + worldname + "'. Your ID: " + player.getID());
 			player.send(
 					ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA" + ChatHelper.YELLOW + " server!");
 			player.send(ChatHelper.YELLOW + "If you found bugs, please let us know!");
@@ -128,8 +126,7 @@ public class Server extends WebSocketServer {
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		Logger.err("Exception " + ex.getMessage() + " "
-				+ (ex.getStackTrace().length > 0 ? ex.getStackTrace()[ex.getStackTrace().length - 1].toString() : ""));
+		Logger.exception(ex);
 	}
 
 	@Override
@@ -175,8 +172,6 @@ public class Server extends WebSocketServer {
 						} else {
 							player.send(ChatHelper.RED + "Usage: /admin &ltpassword&gt");
 						}
-					} else if (parameters[0].equals("online")) {
-						player.send(ChatHelper.LIME + "Current online: " + player.getWorld().getOnline());
 					} else if (parameters[0].equals("kick") && player.isAdmin()) {
 						if (parameters.length > 1) {
 							final int id1 = Integer.parseInt(parameters[1]);

@@ -14,12 +14,17 @@ public final class Logger {
 
 	public static void warn(final String str) {
 		System.out.println("[" + Logger.getTimestamp() + " WARN] " + str);
-		Server.broadcast(ChatHelper.CYAN + "[WARN] " + str, true);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[WARN] " + str, true);
 	}
 
 	public static void err(final String str) {
 		System.err.println("[" + Logger.getTimestamp() + " ERROR] " + str);
-		Server.broadcast(ChatHelper.CYAN + "[ERROR] " + str, true);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[ERROR] " + str, true);
+	}
+
+	public static void exception(final Exception e) {
+		Logger.err("Exception " + e.getMessage());
+		e.printStackTrace();
 	}
 
 	public static void chat(final String str) {
@@ -28,6 +33,6 @@ public final class Logger {
 
 	public static void command(final String str) {
 		System.out.println("[" + (Logger.getTimestamp() + " COMMAND] " + str));
-		Server.broadcast(ChatHelper.CYAN + "[COMMAND] " + str, true);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[COMMAND] " + str, true);
 	}
 }

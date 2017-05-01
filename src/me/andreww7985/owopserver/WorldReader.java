@@ -14,39 +14,39 @@ import java.util.Arrays;
 public class WorldReader {
 	final static String worlddir = "chunkdata";
 	final String worldname;
-	
+
 	public WorldReader(final String worldname) {
 		this.worldname = worldname;
 		(new File(worlddir + File.separator + worldname)).mkdirs();
 	}
-	
+
 	private FileChannel getFile(final int regionX, final int regionY, final Boolean createFileIfNonExistant) {
 		final String filename = "r." + regionX + "." + regionY + ".pxr";
 		final Path path = Paths.get(worlddir, worldname, filename);
 		FileChannel fc = null;
 		try {
 			if (createFileIfNonExistant) {
-				fc = FileChannel.open(path, StandardOpenOption.READ,
-						StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+				fc = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE,
+						StandardOpenOption.CREATE);
 				if (fc.size() < 3072) {
 					/* Dangerous? */
 					fc.write(ByteBuffer.allocate(1), 3071);
 				}
 			} else {
-				fc = FileChannel.open(path, StandardOpenOption.READ,
-						StandardOpenOption.WRITE);
+				fc = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
 			}
 		} catch (final IOException e) {
-			/* Do not log exceptions here.
-			 * 
-			 * TODO: maybe cache files that were not found, 
-			 * to prevent opening them again until this gets called with createFileIfNonExistant
+			/*
+			 * Do not log exceptions here.
+			 *
+			 * TODO: maybe cache files that were not found, to prevent opening
+			 * them again until this gets called with createFileIfNonExistant
 			 **/
 			return null;
 		}
 		return fc;
 	}
-	
+
 	public void writeChunk(final Chunk chunk, final int x, final int y) {
 		final FileChannel fc = this.getFile(x >> 5, y >> 5, true);
 		final byte[] pixels = chunk.getByteArray();
@@ -77,9 +77,10 @@ public class WorldReader {
 			fc.close();
 		} catch (final IOException e) {
 			Logger.err("Could not save chunk at: " + x + ", " + y + "!");
+			Logger.exception(e);
 		}
 	}
-	
+
 	public Chunk readChunk(final int x, final int y) {
 		final FileChannel fc = this.getFile(x >> 5, y >> 5, false);
 		final byte[] pixels = new byte[16 * 16 * 3];
@@ -101,9 +102,9 @@ public class WorldReader {
 				Arrays.fill(pixels, (byte) 255);
 			}
 			fc.close();
-		} catch(final IOException e) {
-			System.err.println(e);
-			Arrays.fill(pixels, (byte) 255); 
+		} catch (final IOException e) {
+			Logger.exception(e);
+			Arrays.fill(pixels, (byte) 255);
 		}
 		return new Chunk(pixels, x, y);
 	}

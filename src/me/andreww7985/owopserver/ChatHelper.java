@@ -7,4 +7,5 @@ public class ChatHelper {
 	public static final String YELLOW = "<font style=\"color:#FDD200;\">";
 	public static final String ORANGE = "<font style=\"color:#FE8100;\">";
 	public static final String BLUE = "<font style=\"color:#0C5EBA;\">";
+	public static final String DEV_CONSOLE = "DEV";
 }

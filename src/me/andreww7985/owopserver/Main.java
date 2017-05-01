@@ -11,7 +11,7 @@ public class Main {
 			} catch (final NumberFormatException e) {
 				Logger.err("Bad port number!");
 			} catch (final Exception e) {
-				e.printStackTrace();
+				Logger.exception(e);
 			}
 		}
 	}
