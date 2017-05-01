@@ -42,12 +42,14 @@ public class Server extends WebSocketServer {
 			players.remove(addr);
 			totalOnline--;
 			// TODO: Enable world unloading when saving is done
-			/*
-			 * if (world.getOnline() == 0) { final String worldname =
-			 * world.getName(); world.save(); worlds.remove(worldname);
-			 * Logger.info("Unloaded world '" + worldname + "'"); // TODO: Fix
-			 * memory leaks }
-			 */
+			
+			if (world.getOnline() == 0) {
+				final String worldname = world.getName();
+				world.save();
+				worlds.remove(worldname);
+				Logger.info("Unloaded world '" + worldname + "'"); // TODO: Fix memory leaks
+			}
+			
 		}
 	}
 

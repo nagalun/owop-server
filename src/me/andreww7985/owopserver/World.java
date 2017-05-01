@@ -14,10 +14,12 @@ public class World {
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
 	private final String name;
+	private final WorldReader wr;
 	private int playersId, online;
 
 	public World(final String name) {
 		this.name = name;
+		this.wr = new WorldReader(name);
 	}
 
 	private static long getChunkKey(final int x, final int y) {
@@ -38,12 +40,7 @@ public class World {
 	}
 
 	private Chunk loadChunk(final int x, final int y) {
-		final Chunk chunk = new Chunk();
-		for (int yy = 0; yy < 16; yy++) {
-			for (int xx = 0; xx < 16; xx++) {
-				chunk.setPixel(xx, yy, 0xFFFFFF);
-			}
-		}
+		final Chunk chunk = wr.readChunk(x, y);
 		chunks.put(World.getChunkKey(x, y), chunk);
 		Server.chunksLoaded(1);
 		return chunk;
@@ -132,7 +129,11 @@ public class World {
 	}
 
 	public void save() {
-		// TODO: Implement world saving
+		chunks.forEach((key, chunk) -> {
+			if(chunk.shouldSave()) {
+				wr.writeChunk(chunk, chunk.getX(), chunk.getY());
+			}
+		});
 	}
 
 	public void clearChunk(final int x, final int y) {
