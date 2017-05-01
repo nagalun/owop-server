@@ -64,8 +64,8 @@ public class Player {
 		lastY = y;
 		lastYMod = (byte) (y % 16);
 		if (sameMod >= 6) {
-			kick();
-			Logger.warn("Found BOT with id " + id + "! Disconnecting...");
+			//kick();
+			//Logger.warn("Found BOT with id " + id + "! Disconnecting...");
 		}
 		world.playerMoved(this);
 	}
