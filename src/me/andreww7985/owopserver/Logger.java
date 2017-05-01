@@ -10,16 +10,17 @@ public final class Logger {
 
 	public static void info(final String str) {
 		System.out.println("[" + Logger.getTimestamp() + " INFO] " + str);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[INFO] " + str, true);
 	}
 
 	public static void warn(final String str) {
 		System.out.println("[" + Logger.getTimestamp() + " WARN] " + str);
-		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[WARN] " + str, true);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.YELLOW + "[WARN] " + str, true);
 	}
 
 	public static void err(final String str) {
 		System.err.println("[" + Logger.getTimestamp() + " ERROR] " + str);
-		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.CYAN + "[ERROR] " + str, true);
+		Server.broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.RED + "[ERROR] " + str, true);
 	}
 
 	public static void exception(final Exception e) {
