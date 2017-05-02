@@ -189,7 +189,6 @@ public class Server extends WebSocketServer {
 								+ totalChunksLoaded);
 					} else if (parameters[0].equals("help") && player.isAdmin()) {
 						player.send(ChatHelper.LIME + "/help - show help");
-						player.send(ChatHelper.LIME + "/online - show online in current world.");
 						player.send(ChatHelper.LIME + "/info - show total online and loaded chunks.");
 						player.send(ChatHelper.LIME + "/admin &ltpassword&gt - enable admin mode.");
 						player.send(ChatHelper.LIME + "/kick &ltID&gt - kick player with ID.");
