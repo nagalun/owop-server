@@ -64,8 +64,8 @@ public class Player {
 		lastY = y;
 		lastYMod = (byte) (y % 16);
 		if (sameMod >= 6) {
-			//kick();
-			//Logger.warn("Found BOT with id " + id + "! Disconnecting...");
+			// kick();
+			// Logger.warn("Found BOT with id " + id + "! Disconnecting...");
 		}
 		world.playerMoved(this);
 	}
@@ -121,7 +121,17 @@ public class Player {
 		}
 	}
 
+	public void teleport(final int x, final int y) {
+		final ByteBuffer buffer = ByteBuffer.allocate(777);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		buffer.put((byte) 3);
+		buffer.putInt(x);
+		buffer.putInt(y);
+		send(buffer.array());
+	}
+
 	public void kick() {
+		Logger.warn("Kicked player with ID " + id);
 		webSocket.close();
 	}
 }

@@ -4,6 +4,8 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -97,12 +99,12 @@ public class Server extends WebSocketServer {
 				break;
 			}
 			case 9: {
-				final int x = message.getInt(0), y = message.getInt(4);
 				if (!player.isAdmin()) {
 					player.kick();
-					return;
+				} else {
+					final int x = message.getInt(0), y = message.getInt(4);
+					player.getWorld().clearChunk(x, y);
 				}
-				player.getWorld().clearChunk(x, y);
 				break;
 			}
 			case 11: {
@@ -174,24 +176,68 @@ public class Server extends WebSocketServer {
 						}
 					} else if (parameters[0].equals("kick") && player.isAdmin()) {
 						if (parameters.length > 1) {
-							final int id1 = Integer.parseInt(parameters[1]);
-							players.forEach((k, playerKick) -> {
-								if (playerKick.getID() == id1) {
-									playerKick.kick();
+							final int kickId = Integer.parseInt(parameters[1]);
+							final Iterator<Entry<InetSocketAddress, Player>> iter = players.entrySet().iterator();
+							boolean done = false;
+							while (iter.hasNext()) {
+								final Player curr = iter.next().getValue();
+								if (curr.getID() == kickId) {
+									curr.kick();
+									done = true;
+									player.send(ChatHelper.LIME + "Kicked " + kickId + "!");
+									break;
 								}
-							});
-							player.send(ChatHelper.LIME + "Kicked " + id1 + "!");
+							}
+							if (!done) {
+								player.send(ChatHelper.RED + "Can't find player with ID " + kickId + "!");
+							}
 						} else {
 							player.send(ChatHelper.RED + "Usage: /kick &ltID&gt");
 						}
 					} else if (parameters[0].equals("info") && player.isAdmin()) {
 						player.send(ChatHelper.LIME + "Total online: " + totalOnline + ". Total chunks loaded: "
 								+ totalChunksLoaded);
+					} else if (parameters[0].equals("a") && player.isAdmin()) {
+						if (parameters.length < 2) {
+							player.send(ChatHelper.RED + "Usage: /a &lttext&gt");
+						} else {
+							String text = ChatHelper.ORANGE + "[A] " + player.getID() + ": ";
+							for (int i = 1; i < parameters.length; i++) {
+								text += parameters[i] + " ";
+							}
+							Server.broadcast(text, true);
+						}
+					} else if (parameters[0].equals("tp") && player.isAdmin()) {
+						if (parameters.length < 2) {
+							player.send(ChatHelper.RED + "Usage: /tp &ltID&gt OR /tp &ltX&gt &ltY&gt");
+						} else if (parameters.length == 2) {
+							final int tpId = Integer.parseInt(parameters[1]);
+							final Iterator<Entry<InetSocketAddress, Player>> iter = players.entrySet().iterator();
+							boolean done = false;
+							while (iter.hasNext()) {
+								final Player curr = iter.next().getValue();
+								if (curr.getID() == tpId) {
+									player.teleport(curr.getX(), curr.getY());
+									done = true;
+									player.send(ChatHelper.LIME + "Teleported to player with ID " + tpId + "!");
+									break;
+								}
+							}
+							if (!done) {
+								player.send(ChatHelper.RED + "Can't find player with ID " + tpId + "!");
+							}
+						} else if (parameters.length > 2) {
+							player.teleport(Integer.parseInt(parameters[1]), Integer.parseInt(parameters[2]));
+						}
 					} else if (parameters[0].equals("help") && player.isAdmin()) {
 						player.send(ChatHelper.LIME + "/help - show help");
 						player.send(ChatHelper.LIME + "/info - show total online and loaded chunks.");
+						player.send(ChatHelper.LIME + "/tp - teleport to player OR coordinates.");
+						player.send(ChatHelper.LIME + "/a - say something only to admins.");
 						player.send(ChatHelper.LIME + "/admin &ltpassword&gt - enable admin mode.");
 						player.send(ChatHelper.LIME + "/kick &ltID&gt - kick player with ID.");
+					} else if (parameters[0].equals("spawn")) {
+						player.teleport(0, 0);
 					} else if (player.isAdmin()) {
 						player.send(ChatHelper.RED + "Unknown command! Type '/help' for a list of commands.");
 					}
