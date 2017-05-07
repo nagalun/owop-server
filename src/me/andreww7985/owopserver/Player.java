@@ -122,7 +122,7 @@ public class Player {
 	}
 
 	public void teleport(final int x, final int y) {
-		final ByteBuffer buffer = ByteBuffer.allocate(777);
+		final ByteBuffer buffer = ByteBuffer.allocate(9);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 3);
 		buffer.putInt(x);
