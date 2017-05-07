@@ -85,9 +85,11 @@ public class Server extends WebSocketServer {
 			players.put(addr, player);
 			world.playerJoined(player);
 			player.send(ChatHelper.LIME + "Joined world '" + worldname + "'. Your ID: " + player.getID());
-			player.send(
-					ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA" + ChatHelper.YELLOW + " server!");
-			player.send(ChatHelper.YELLOW + "If you found bugs, please let us know!");
+			// player.send(
+			// ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA"
+			// + ChatHelper.YELLOW + " server!");
+			// player.send(ChatHelper.YELLOW + "If you found bugs, please let us
+			// know!");
 			Logger.info("Joined player from " + addr + " to world '" + worldname + "' with ID " + player.getID());
 			totalOnline++;
 		} else {
@@ -217,7 +219,7 @@ public class Server extends WebSocketServer {
 							while (iter.hasNext()) {
 								final Player curr = iter.next().getValue();
 								if (curr.getID() == tpId) {
-									player.teleport(curr.getX(), curr.getY());
+									player.teleport(curr.getX() >> 4, curr.getY() >> 4);
 									done = true;
 									player.send(ChatHelper.LIME + "Teleported to player with ID " + tpId + "!");
 									break;
