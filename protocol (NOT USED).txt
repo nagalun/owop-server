@@ -1,0 +1,65 @@
+All messages are prefixed with an 8-bit opcode. The opcode determines which data will follow it.
+All multi-byte values are transmitted in little-endian.
+To chat just send and receive websocket strings.
+
+Client -> Server protocol
+Opcode 0x00 (Ping)
+	No data
+Opcode 0x01 (Join world)
+	- ASCII string (world name)
+Opcode 0x02 (Request chunk)
+	- int_32 (Chunk X)
+	- int_32 (Chunk Y)
+Opcode 0x03 (Request updates)
+	No data
+Opcode 0x04 (Player update)
+	- int_32 (Player X)
+	- int_32 (Player Y)
+	- uint_8 (Player red value)
+	- uint_8 (Player green value)
+	- uint_8 (Player blue value)
+	- uint_8 (Player tool)
+Opcode 0x05 (Set pixel)
+	- int_32 (Pixel X)
+	- int_32 (Pixel Y)
+	- uint_8 (Pixel red value)
+	- uint_8 (Pixel green value)
+	- uint_8 (Pixel blue value)
+Opcode 0xFF (Exit world)
+	No data
+	
+Server -> Client protocol
+Opcode 0x00 (Pong)
+	No data
+Opcode 0x01 (Response to a client 0x01)
+	- int_32 (Player ID)
+Opcode 0x02 (Response to a client 0x02)
+	- int_32 (Chunk X)
+	- int_32 (Chunk Y)
+	- 768 * uint_8 (Chunk data, 3 bytes per pixel (RGB), 16 * 16 pixels)
+Opcode 0x03 (Response to a client 0x03)
+	- uint_8 (Number of player updates)
+	For each player update:
+		- int_32 (Player ID)
+		- int_32 (Player X)
+		- int_32 (Player Y)
+		- uint_8 (Player red value)
+		- uint_8 (Player green value)
+		- uint_8 (Player blue value)
+		- uint_8 (Player tool)
+	- uint_16 (Number of pixel updates)
+	For each player update:
+		- int_32 (Pixel X)
+		- int_32 (Pixel Y)
+		- uint_8 (Pixel red value)
+		- uint_8 (Pixel green value)
+		- uint_8 (Pixel blue value)
+	- uint_8 (Number of player disconnects)
+	For each player update:
+		- int_32 (Player ID)
+Opcode 0x04 (Teleport player)
+	- int_32 (Pixel X)
+	- int_32 (Pixel Y)
+Opcode 0x05 (Admin mode enabled)
+	No data
+	
