@@ -6,11 +6,10 @@ import java.nio.ByteOrder;
 import org.java_websocket.WebSocket;
 
 public class Player {
-	private byte lastXMod, lastYMod, sameMod;
 	private short tool;
 	private final World world;
 	private final WebSocket webSocket;
-	private int x, y, rgb, lastX, lastY;
+	private int x, y, rgb;
 	private final int id;
 	private boolean admin;
 
@@ -92,7 +91,7 @@ public class Player {
 		}
 	}
 
-	public void send(final String data) {
+	public void sendMessage(final String data) {
 		if (isConnected()) {
 			webSocket.send(data);
 		}
