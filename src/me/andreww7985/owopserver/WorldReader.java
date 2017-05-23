@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class WorldReader {
 		final FileChannel fc = this.getFile(x >> 5, y >> 5, true);
 		final byte[] pixels = chunk.getByteArray();
 		if (fc == null) {
-			OWOPServer.getInstance().getLogger().err("Could not save chunk at: " + x + ", " + y + "!");
+			Logger.err("Could not save chunk at: " + x + ", " + y + "!");
 			return;
 		}
 		final long lookup = 3 * ((x & 31) + (y & 31) * 32);
@@ -76,8 +76,8 @@ public class WorldReader {
 			}
 			fc.close();
 		} catch (final IOException e) {
-			OWOPServer.getInstance().getLogger().err("Could not save chunk at: " + x + ", " + y + "!");
-			OWOPServer.getInstance().getLogger().exception(e);
+			Logger.err("Could not save chunk at: " + x + ", " + y + "!");
+			Logger.exception(e);
 		}
 	}
 
@@ -103,7 +103,7 @@ public class WorldReader {
 			}
 			fc.close();
 		} catch (final IOException e) {
-			OWOPServer.getInstance().getLogger().exception(e);
+			Logger.exception(e);
 			Arrays.fill(pixels, (byte) 255);
 		}
 		return new Chunk(pixels, x, y);

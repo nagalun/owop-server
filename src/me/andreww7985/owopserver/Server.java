@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -14,61 +14,42 @@ import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
-// TODO: Make plugin API and loader
+public class Server extends WebSocketServer {
+	private static ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
+	private static ConcurrentHashMap<String, World> worlds = new ConcurrentHashMap<String, World>();
+	private static String admPass;
+	private static int totalChunksLoaded, totalOnline;
 
-public class OWOPServer extends WebSocketServer {
-	private static OWOPServer instance;
-
-	private final ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
-	private final ConcurrentHashMap<String, World> worlds = new ConcurrentHashMap<String, World>();
-	private final String admPass;
-	private int totalChunksLoaded, totalOnline;
-	private final EventManager eventManager;
-	private final Logger logger;
-
-	public OWOPServer(final String admPass, final int port) throws Exception {
+	public Server(final String admPass, final int port) throws Exception {
 		super(new InetSocketAddress(port));
-		this.admPass = admPass;
-		eventManager = new EventManager();
-		logger = new Logger();
-		OWOPServer.instance = this;
-		logger.info("Admin password is '" + admPass + "'");
-		logger.info("Starting server on port " + this.getAddress().getPort());
-	}
-
-	public static OWOPServer getInstance() {
-		return OWOPServer.instance;
-	}
-
-	public Logger getLogger() {
-		return logger;
-	}
-
-	public EventManager getEventManager() {
-		return eventManager;
+		Server.admPass = admPass;
+		Logger.info("Admin password is '" + Server.admPass + "'");
+		Logger.info("Starting server on port " + this.getAddress().getPort());
 	}
 
 	@Override
 	public void onOpen(final WebSocket ws, final ClientHandshake handshake) {
 		final InetSocketAddress addr = ws.getRemoteSocketAddress();
-		logger.info("Connected new player from " + addr);
+		Logger.info("Connected new player from " + addr);
 	}
 
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
 		final InetSocketAddress addr = ws.getRemoteSocketAddress();
 		final Player player = players.get(addr);
-		logger.info("Disconnected player from " + addr);
+		Logger.info("Disconnected player from " + addr);
 		if (player != null) {
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
 			totalOnline--;
+			// TODO: Enable world unloading when saving is done
 			if (world.getOnline() == 0) {
 				final String worldname = world.getName();
 				world.save();
 				worlds.remove(worldname);
-				logger.info("Unloaded world '" + worldname + "'");
+				Logger.info("Unloaded world '" + worldname + "'");
+				// TODO: Check for memory leaks
 			}
 		}
 	}
@@ -81,7 +62,7 @@ public class OWOPServer extends WebSocketServer {
 		if (player == null) {
 			final byte[] bytes = message.array();
 			if (message.getShort(bytes.length - 2) != 1337) {
-				logger.warn("Join verification failed for: " + addr);
+				Logger.warn("World name verification failed for: " + addr);
 				ws.close();
 				return;
 			}
@@ -97,14 +78,19 @@ public class OWOPServer extends WebSocketServer {
 			if (world == null) {
 				world = new World(worldname);
 				worlds.put(worldname, world);
-				logger.info("Loaded world '" + worldname + "'");
+				Logger.info("Loaded world '" + worldname + "'");
 			}
 
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
 			player.send(ChatHelper.LIME + "Joined world '" + worldname + "'. Your ID: " + player.getID());
-			logger.info("Joined player from " + addr + " to world '" + worldname + "' with ID " + player.getID());
+			// player.send(
+			// ChatHelper.YELLOW + "Hi, you are on " + ChatHelper.BLUE + "BETA"
+			// + ChatHelper.YELLOW + " server!");
+			// player.send(ChatHelper.YELLOW + "If you found bugs, please let us
+			// know!");
+			Logger.info("Joined player from " + addr + " to world '" + worldname + "' with ID " + player.getID());
 			totalOnline++;
 		} else {
 			switch (message.array().length) {
@@ -136,7 +122,7 @@ public class OWOPServer extends WebSocketServer {
 				break;
 			}
 			default:
-				logger.warn("Unknown packet from " + player.getID() + " with " + message.array().length + " bytes!");
+				Logger.warn("Unknown packet from " + player.getID() + " with " + message.array().length + " bytes!");
 				break;
 			}
 		}
@@ -144,7 +130,7 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public void onError(final WebSocket conn, final Exception ex) {
-		logger.exception(ex);
+		Logger.exception(ex);
 	}
 
 	@Override
@@ -174,17 +160,17 @@ public class OWOPServer extends WebSocketServer {
 			if (!message.isEmpty()) {
 				if (trimmed.startsWith("/")) {
 					final String[] parameters = trimmed.substring(1).toLowerCase().split(" ");
-					logger.command(player.getID() + " issued " + Arrays.toString(parameters));
+					Logger.command(player.getID() + " issued " + Arrays.toString(parameters));
 					// TODO: More commands
 					if (parameters[0].equals("admin")) {
 						if (parameters.length > 1) {
 							if (parameters[1].equals(admPass)) {
 								player.send(
 										ChatHelper.LIME + "Admin mode enabled!  Type '/help' for a list of commands.");
-								logger.warn(player.getID() + " is now admin");
+								Logger.warn(player.getID() + " is now admin");
 								player.setAdmin(true);
 							} else {
-								logger.warn(player.getID() + " used wrong password. Disconnecting...");
+								Logger.warn(player.getID() + " used wrong password. Disconnecting...");
 								player.kick();
 							}
 						} else {
@@ -221,7 +207,7 @@ public class OWOPServer extends WebSocketServer {
 							for (int i = 1; i < parameters.length; i++) {
 								text += parameters[i] + " ";
 							}
-							broadcast(text, true);
+							Server.broadcast(text, true);
 						}
 					} else if (parameters[0].equals("tp") && player.isAdmin()) {
 						if (parameters.length < 2) {
@@ -258,7 +244,7 @@ public class OWOPServer extends WebSocketServer {
 						player.send(ChatHelper.RED + "Unknown command! Type '/help' for a list of commands.");
 					}
 				} else {
-					logger.chat(message);
+					Logger.chat(message);
 					broadcast((player.isAdmin() ? ChatHelper.ORANGE : "") + id + ": " + message, false);
 				}
 			}
@@ -266,7 +252,7 @@ public class OWOPServer extends WebSocketServer {
 
 	}
 
-	public void broadcast(final String text, final boolean adminOnly) {
+	public static void broadcast(final String text, final boolean adminOnly) {
 		if (adminOnly) {
 			players.forEach((k, player) -> {
 				if (player.isAdmin()) {
@@ -278,19 +264,19 @@ public class OWOPServer extends WebSocketServer {
 		}
 	}
 
-	public World getWorld(final String world) {
+	public static World getWorld(final String world) {
 		return worlds.get(world);
 	}
 
-	public void chunksLoaded(final int num) {
+	public static void chunksLoaded(final int num) {
 		totalChunksLoaded += num;
 	}
 
-	public void chunksUnloaded(final int num) {
+	public static void chunksUnloaded(final int num) {
 		totalChunksLoaded -= num;
 	}
 
-	public int getChunksLoaded() {
+	public static int getChunksLoaded() {
 		return totalChunksLoaded;
 	}
 }

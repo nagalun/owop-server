@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver;
 
 public class PixelUpdate {
 	public final int x, y, rgb;

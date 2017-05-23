@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -42,7 +42,7 @@ public class World {
 	private Chunk loadChunk(final int x, final int y) {
 		final Chunk chunk = wr.readChunk(x, y);
 		chunks.put(World.getChunkKey(x, y), chunk);
-		OWOPServer.getInstance().chunksLoaded(1);
+		Server.chunksLoaded(1);
 		return chunk;
 	}
 
@@ -133,7 +133,7 @@ public class World {
 			if (chunk.shouldSave()) {
 				wr.writeChunk(chunk, chunk.getX(), chunk.getY());
 			}
-			OWOPServer.getInstance().chunksUnloaded(1);
+			Server.chunksUnloaded(1);
 		});
 	}
 

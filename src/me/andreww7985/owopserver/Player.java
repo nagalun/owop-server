@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -47,14 +47,26 @@ public class Player {
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
-		/*
-		 * if (x != lastX || y != lastY) { if (((x % 16) + 16) % 16 == lastXMod)
-		 * { sameMod++; } else { sameMod = 0; } if (((y % 16) + 16) % 16 ==
-		 * lastYMod) { sameMod++; } else { sameMod = 0; } } lastX = x; lastXMod
-		 * = (byte) (x % 16); lastY = y; lastYMod = (byte) (y % 16); if (sameMod
-		 * >= 6) { // kick(); // Logger.warn("Found BOT with id " + id +
-		 * "! Disconnecting..."); }
-		 */
+		if (x != lastX || y != lastY) {
+			if (((x % 16) + 16) % 16 == lastXMod) {
+				sameMod++;
+			} else {
+				sameMod = 0;
+			}
+			if (((y % 16) + 16) % 16 == lastYMod) {
+				sameMod++;
+			} else {
+				sameMod = 0;
+			}
+		}
+		lastX = x;
+		lastXMod = (byte) (x % 16);
+		lastY = y;
+		lastYMod = (byte) (y % 16);
+		if (sameMod >= 6) {
+			// kick();
+			// Logger.warn("Found BOT with id " + id + "! Disconnecting...");
+		}
 		world.playerMoved(this);
 	}
 
@@ -119,7 +131,7 @@ public class Player {
 	}
 
 	public void kick() {
-		OWOPServer.getInstance().getLogger().warn("Kicked player with ID " + id);
+		Logger.warn("Kicked player with ID " + id);
 		webSocket.close();
 	}
 }
