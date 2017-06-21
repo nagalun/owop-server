@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver;
+package me.andreww7985.owopserver.server;
 
 public class ChatHelper {
 	public static final String LIME = "<font style=\"color:#8FC637;\">";
@@ -8,4 +8,9 @@ public class ChatHelper {
 	public static final String ORANGE = "<font style=\"color:#FE8100;\">";
 	public static final String BLUE = "<font style=\"color:#0C5EBA;\">";
 	public static final String DEV_CONSOLE = "DEV";
+
+	public static String format(final String input) {
+		return input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+				.replace("'", "&#x27;").replace("/", "&#x2F;");
+	}
 }

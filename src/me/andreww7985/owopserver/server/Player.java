@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver;
+package me.andreww7985.owopserver.server;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -6,11 +6,12 @@ import java.nio.ByteOrder;
 import org.java_websocket.WebSocket;
 
 public class Player {
-	private byte lastXMod, lastYMod, sameMod;
 	private short tool;
 	private final World world;
 	private final WebSocket webSocket;
-	private int x, y, rgb, lastX, lastY;
+	private int x;
+	private int y;
+	private int rgb;
 	private final int id;
 	private boolean admin;
 
@@ -33,12 +34,11 @@ public class Player {
 		buffer.putInt(x);
 		buffer.putInt(y);
 		buffer.position(9);
-		buffer.put(chunk.getByteArray(), 0, 16 * 16 * 3);
+		buffer.put(chunk.getByteArray(), 0, 768);
 		send(buffer.array());
 	}
 
 	public void putPixel(final int x, final int y, final int rgb) {
-		// TODO: Implement timeout
 		world.setPixel(x, y, rgb);
 	}
 
@@ -47,26 +47,7 @@ public class Player {
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
-		if (x != lastX || y != lastY) {
-			if (((x % 16) + 16) % 16 == lastXMod) {
-				sameMod++;
-			} else {
-				sameMod = 0;
-			}
-			if (((y % 16) + 16) % 16 == lastYMod) {
-				sameMod++;
-			} else {
-				sameMod = 0;
-			}
-		}
-		lastX = x;
-		lastXMod = (byte) (x % 16);
-		lastY = y;
-		lastYMod = (byte) (y % 16);
-		if (sameMod >= 6) {
-			// kick();
-			// Logger.warn("Found BOT with id " + id + "! Disconnecting...");
-		}
+
 		world.playerMoved(this);
 	}
 
@@ -104,7 +85,7 @@ public class Player {
 		}
 	}
 
-	public void send(final String data) {
+	public void sendMessage(final String data) {
 		if (isConnected()) {
 			webSocket.send(data);
 		}
@@ -117,7 +98,7 @@ public class Player {
 	public void setAdmin(final boolean admin) {
 		this.admin = admin;
 		if (admin) {
-			send(new byte[] { (byte) 4 });
+			send(new byte[] { 4 });
 		}
 	}
 
@@ -131,7 +112,7 @@ public class Player {
 	}
 
 	public void kick() {
-		Logger.warn("Kicked player with ID " + id);
+		OWOPServer.getInstance().getLogger().warn("Kicked player with ID " + id);
 		webSocket.close();
 	}
 }

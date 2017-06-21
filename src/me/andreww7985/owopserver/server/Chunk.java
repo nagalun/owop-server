@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver;
+package me.andreww7985.owopserver.server;
 
 public class Chunk {
 	private final byte[] pixels;
