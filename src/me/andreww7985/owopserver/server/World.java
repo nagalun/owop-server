@@ -8,92 +8,88 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class World {
-	private final ConcurrentHashMap<Long, Chunk> chunks;
-	private final ReentrantLock updateLock;
-	private final HashSet<Player> playerUpdates;
-	private final ArrayList<PixelUpdate> pixelUpdates;
-	private final HashSet<Integer> playerDisconnects;
+	private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<Long, Chunk>();
+	private final ReentrantLock updateLock = new ReentrantLock();
+	private final HashSet<Player> playerUpdates = new HashSet<Player>();
+	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
+	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
 	private final String name;
 	private final WorldReader wr;
-	private int playersId;
-	private int online;
+	private int playersId, online;
 
 	public World(final String name) {
-		this.chunks = new ConcurrentHashMap<Long, Chunk>();
-		this.updateLock = new ReentrantLock();
-		this.playerUpdates = new HashSet<Player>();
-		this.pixelUpdates = new ArrayList<PixelUpdate>();
-		this.playerDisconnects = new HashSet<Integer>();
 		this.name = name;
 		this.wr = new WorldReader(name);
 	}
 
 	private static long getChunkKey(final int x, final int y) {
-		return (x << 32) + y;
+		return ((long) x << 32) + y;
 	}
 
 	public int getNextID() {
-		++this.playersId;
-		return this.playersId - 1;
+		playersId++;
+		return playersId - 1;
 	}
 
 	public Chunk getChunk(final int x, final int y) {
-		Chunk chunk = this.chunks.get(getChunkKey(x, y));
+		Chunk chunk = chunks.get(World.getChunkKey(x, y));
 		if (chunk == null) {
-			chunk = this.loadChunk(x, y);
+			chunk = loadChunk(x, y);
 		}
 		return chunk;
 	}
 
 	private Chunk loadChunk(final int x, final int y) {
-		final Chunk chunk = this.wr.readChunk(x, y);
-		this.chunks.put(getChunkKey(x, y), chunk);
+		final Chunk chunk = wr.readChunk(x, y);
+		chunks.put(World.getChunkKey(x, y), chunk);
 		OWOPServer.getInstance().chunksLoaded(1);
 		return chunk;
 	}
 
 	public void setPixel(final int x, final int y, final int rgb) {
-		final Chunk chunk = this.getChunk(x >> 4, y >> 4);
+		final Chunk chunk = getChunk(x >> 4, y >> 4);
 		if (chunk.getPixel(x & 0xF, y & 0xF) == rgb) {
 			return;
 		}
 		chunk.setPixel(x & 0xF, y & 0xF, rgb);
-		this.updateLock.lock();
-		this.pixelUpdates.add(new PixelUpdate(x, y, rgb));
-		this.updateLock.unlock();
+		updateLock.lock();
+		pixelUpdates.add(new PixelUpdate(x, y, rgb));
+		updateLock.unlock();
 	}
 
 	public void playerMoved(final Player player) {
-		this.updateLock.lock();
-		this.playerUpdates.add(player);
-		this.updateLock.unlock();
+		updateLock.lock();
+		playerUpdates.add(player);
+		updateLock.unlock();
 	}
 
 	public void playerJoined(final Player player) {
-		++this.online;
+		online++;
 	}
 
 	public void playerLeft(final Player player) {
-		--this.online;
-		this.updateLock.lock();
-		this.playerDisconnects.add(player.getID());
-		this.updateLock.unlock();
+		online--;
+		updateLock.lock();
+		playerDisconnects.add(player.getID());
+		updateLock.unlock();
 	}
 
 	public void sendUpdates(final Player player) {
-		this.updateLock.lock();
-		final int players = this.playerUpdates.size();
-		final int pixels = this.pixelUpdates.size();
-		final int disconnects = this.playerDisconnects.size();
+		updateLock.lock();
+		final int players = playerUpdates.size(), pixels = pixelUpdates.size(), disconnects = playerDisconnects.size();
+
 		if (players + pixels + disconnects == 0) {
-			this.updateLock.unlock();
+			updateLock.unlock();
 			return;
 		}
+
 		final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 16 + pixels * 11 + disconnects * 4);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 1);
+
+		// TODO: Fix possible error with 255+ player updates
 		buffer.put((byte) players);
-		this.playerUpdates.forEach(p -> {
+		playerUpdates.forEach(p -> {
 			final int rgb = p.getRGB();
 			buffer.putInt(p.getID());
 			buffer.putInt(p.getX());
@@ -102,57 +98,62 @@ public class World {
 			buffer.put((byte) (rgb >> 8 & 0xFF));
 			buffer.put((byte) (rgb >> 16 & 0xFF));
 			buffer.put((byte) (p.getTool() & 0xFF));
-			return;
 		});
+
+		// TODO: Fix possible error with 65535+ pixel updates
 		buffer.putShort((short) pixels);
-		this.pixelUpdates.forEach(p -> {
+		pixelUpdates.forEach(p -> {
 			buffer.putInt(p.x);
 			buffer.putInt(p.y);
 			buffer.put((byte) (p.rgb & 0xFF));
 			buffer.put((byte) (p.rgb >> 8 & 0xFF));
 			buffer.put((byte) (p.rgb >> 16 & 0xFF));
-			return;
 		});
+
+		// TODO: Fix possible error with 255+ player disconnects
 		buffer.put((byte) disconnects);
-		this.playerDisconnects.forEach(id -> buffer.putInt(id));
-		this.updateLock.unlock();
+		playerDisconnects.forEach(id -> {
+			buffer.putInt(id);
+		});
+
+		updateLock.unlock();
 		player.send(buffer.array());
 	}
 
 	public int getOnline() {
-		return this.online;
+		return online;
 	}
 
 	public String getName() {
-		return this.name;
+		return name;
 	}
 
 	public void save() {
-		this.chunks.forEach((key, chunk) -> {
+		chunks.forEach((key, chunk) -> {
 			if (chunk.shouldSave()) {
-				this.wr.writeChunk(chunk, chunk.getX(), chunk.getY());
+				wr.writeChunk(chunk, chunk.getX(), chunk.getY());
 			}
 			OWOPServer.getInstance().chunksUnloaded(1);
 		});
 	}
 
 	public void clearChunk(final int x, final int y) {
-		final Chunk chunk = this.getChunk(x, y);
-		for (int yy = 0; yy < 16; ++yy) {
-			for (int xx = 0; xx < 16; ++xx) {
-				if (chunk.getPixel(xx, yy) != 16777215) {
-					this.pixelUpdates.add(new PixelUpdate(x * 16 + xx, y * 16 + yy, 16777215));
+		final Chunk chunk = getChunk(x, y);
+		for (int yy = 0; yy < 16; yy++) {
+			for (int xx = 0; xx < 16; xx++) {
+				if (chunk.getPixel(xx, yy) != 0xFFFFFF) {
+					pixelUpdates.add(new PixelUpdate(x * 16 + xx, y * 16 + yy, 0xFFFFFF));
 				}
-				chunk.setPixel(xx, yy, 16777215);
+				chunk.setPixel(xx, yy, 0xFFFFFF);
 			}
 		}
 	}
 
 	public void clearUpdates() {
-		this.updateLock.lock();
-		this.playerUpdates.clear();
-		this.playerDisconnects.clear();
-		this.pixelUpdates.clear();
-		this.updateLock.unlock();
+		updateLock.lock();
+		playerUpdates.clear();
+		playerDisconnects.clear();
+		pixelUpdates.clear();
+		updateLock.unlock();
 	}
 }

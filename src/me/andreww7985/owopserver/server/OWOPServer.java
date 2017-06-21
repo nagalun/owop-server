@@ -12,9 +12,11 @@ import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import me.andreww7985.owopserver.command.ACommand;
 import me.andreww7985.owopserver.command.AdminCommand;
 import me.andreww7985.owopserver.command.HelpCommand;
 import me.andreww7985.owopserver.command.InfoCommand;
+import me.andreww7985.owopserver.command.KickCommand;
 import me.andreww7985.owopserver.command.TeleportCommand;
 
 // TODO: Make plugin API and loader
@@ -41,6 +43,8 @@ public class OWOPServer extends WebSocketServer {
 		commandManager.registerCommand(new TeleportCommand());
 		commandManager.registerCommand(new AdminCommand());
 		commandManager.registerCommand(new InfoCommand());
+		commandManager.registerCommand(new ACommand());
+		commandManager.registerCommand(new KickCommand());
 	}
 
 	public static OWOPServer getInstance() {
