@@ -1,5 +1,7 @@
 package me.andreww7985.owopserver.helper;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 
 public class CompressionHelper {
@@ -27,13 +29,15 @@ public class CompressionHelper {
 
 	public static byte[] compress(final byte[] original) {
 		CompressionHelper.original = original;
+		ByteBuffer bbuf = ByteBuffer.wrap(original);
+		bbuf.order(ByteOrder.LITTLE_ENDIAN);
 		repeatlocations = new ArrayList<Integer>();
 		compressed = new ArrayList<Byte>();
 		cptr = 0;
-		lastClr = original[2] << 16 | original[1] << 8 | original[0];
+		lastClr = (bbuf.get(2) << 16 | bbuf.getShort(0)) & 0xFFFFFF;
 		repeats = 0;
 		for (i = 3; i < original.length; i += 3) {
-			thisClr = original[i + 2] << 16 | original[i + 1] << 8 | original[i];
+			thisClr = (bbuf.get(i + 2) << 16 | bbuf.getShort(i)) & 0xFFFFFF;
 			if (lastClr == thisClr) {
 				repeats++;
 			} else {
