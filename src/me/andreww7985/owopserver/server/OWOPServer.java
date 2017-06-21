@@ -18,6 +18,7 @@ import me.andreww7985.owopserver.command.HelpCommand;
 import me.andreww7985.owopserver.command.InfoCommand;
 import me.andreww7985.owopserver.command.KickCommand;
 import me.andreww7985.owopserver.command.TeleportCommand;
+import me.andreww7985.owopserver.helper.ChatHelper;
 
 // TODO: Make plugin API and loader
 
@@ -186,78 +187,6 @@ public class OWOPServer extends WebSocketServer {
 					logger.command(player.getID() + " issued " + Arrays.toString(parameters));
 					commandManager.executeCommand(parameters[0], Arrays.copyOfRange(parameters, 1, parameters.length),
 							player);
-					/*
-					 * // TODO: More commands if (parameters[0].equals("admin"))
-					 * { if (parameters.length > 1) { if
-					 * (parameters[1].equals(admPass)) { player.sendMessage(
-					 * ChatHelper.LIME +
-					 * "Admin mode enabled!  Type '/help' for a list of commands."
-					 * ); logger.warn(player.getID() + " is now admin");
-					 * player.setAdmin(true); } else {
-					 * logger.warn(player.getID() +
-					 * " used wrong password. Disconnecting..."); player.kick();
-					 * } } else { player.sendMessage(ChatHelper.RED +
-					 * "Usage: /admin &ltpassword&gt"); } } else if
-					 * (parameters[0].equals("kick") && player.isAdmin()) { if
-					 * (parameters.length > 1) { final int kickId =
-					 * Integer.parseInt(parameters[1]); final
-					 * Iterator<Entry<InetSocketAddress, Player>> iter =
-					 * players.entrySet().iterator(); boolean done = false;
-					 * while (iter.hasNext()) { final Player curr =
-					 * iter.next().getValue(); if (curr.getID() == kickId) {
-					 * curr.kick(); done = true;
-					 * player.sendMessage(ChatHelper.LIME + "Kicked " + kickId +
-					 * "!"); break; } } if (!done) {
-					 * player.sendMessage(ChatHelper.RED +
-					 * "Can't find player with ID " + kickId + "!"); } } else {
-					 * player.sendMessage(ChatHelper.RED +
-					 * "Usage: /kick &ltID&gt"); } } else if
-					 * (parameters[0].equals("info") && player.isAdmin()) {
-					 * player.sendMessage(ChatHelper.LIME + "Total online: " +
-					 * totalOnline + ". Total chunks loaded: " +
-					 * totalChunksLoaded); } else if (parameters[0].equals("a")
-					 * && player.isAdmin()) { if (parameters.length < 2) {
-					 * player.sendMessage(ChatHelper.RED +
-					 * "Usage: /a &lttext&gt"); } else { String text =
-					 * ChatHelper.ORANGE + "[A] " + player.getID() + ": "; for
-					 * (int i = 1; i < parameters.length; i++) { text +=
-					 * parameters[i] + " "; } broadcast(text, true); } } else if
-					 * (parameters[0].equals("tp") && player.isAdmin()) { if
-					 * (parameters.length < 2) {
-					 * player.sendMessage(ChatHelper.RED +
-					 * "Usage: /tp &ltID&gt OR /tp &ltX&gt &ltY&gt"); } else if
-					 * (parameters.length == 2) { final int tpId =
-					 * Integer.parseInt(parameters[1]); final
-					 * Iterator<Entry<InetSocketAddress, Player>> iter =
-					 * players.entrySet().iterator(); boolean done = false;
-					 * while (iter.hasNext()) { final Player curr =
-					 * iter.next().getValue(); if (curr.getID() == tpId) {
-					 * player.teleport(curr.getX() >> 4, curr.getY() >> 4); done
-					 * = true; player.sendMessage(ChatHelper.LIME +
-					 * "Teleported to player with ID " + tpId + "!"); break; } }
-					 * if (!done) { player.sendMessage(ChatHelper.RED +
-					 * "Can't find player with ID " + tpId + "!"); } } else if
-					 * (parameters.length > 2) {
-					 * player.teleport(Integer.parseInt(parameters[1]),
-					 * Integer.parseInt(parameters[2])); } } else if
-					 * (parameters[0].equals("help") && player.isAdmin()) {
-					 * player.sendMessage(ChatHelper.LIME + "/help - show help"
-					 * ); player.sendMessage(ChatHelper.LIME +
-					 * "/info - show total online and loaded chunks.");
-					 * player.sendMessage(ChatHelper.LIME +
-					 * "/tp - teleport to player OR coordinates.");
-					 * player.sendMessage(ChatHelper.LIME +
-					 * "/a - say something only to admins.");
-					 * player.sendMessage(ChatHelper.LIME +
-					 * "/admin &ltpassword&gt - enable admin mode.");
-					 * player.sendMessage(ChatHelper.LIME +
-					 * "/kick &ltID&gt - kick player with ID."); } else if
-					 * (parameters[0].equals("spawn")) { player.teleport(0, 0);
-					 * } else if (player.isAdmin()) {
-					 * player.sendMessage(ChatHelper.RED +
-					 * "Unknown command! Type '/help' for a list of commands.");
-					 * }
-					 */
 				} else {
 					logger.chat(message);
 					broadcast((player.isAdmin() ? ChatHelper.ORANGE : "") + id + ": " + message, false);

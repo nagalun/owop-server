@@ -5,6 +5,8 @@ import java.nio.ByteOrder;
 
 import org.java_websocket.WebSocket;
 
+import me.andreww7985.owopserver.helper.CompressionHelper;
+
 public class Player {
 	private short tool;
 	private final World world;
@@ -27,14 +29,15 @@ public class Player {
 	}
 
 	public void getChunk(final int x, final int y) {
-		final ByteBuffer buffer = ByteBuffer.allocate(777);
-		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		final Chunk chunk = world.getChunk(x, y);
+		final byte[] compressedChunk = CompressionHelper.compress(chunk.getByteArray());
+		final ByteBuffer buffer = ByteBuffer.allocate(9 + compressedChunk.length);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 2);
 		buffer.putInt(x);
 		buffer.putInt(y);
 		buffer.position(9);
-		buffer.put(chunk.getByteArray(), 0, 768);
+		buffer.put(compressedChunk);
 		send(buffer.array());
 	}
 

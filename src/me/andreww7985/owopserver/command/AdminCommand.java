@@ -1,6 +1,6 @@
 package me.andreww7985.owopserver.command;
 
-import me.andreww7985.owopserver.server.ChatHelper;
+import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
 import me.andreww7985.owopserver.server.Player;
 

@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver.helper;
 
 public class ChatHelper {
 	public static final String LIME = "<font style=\"color:#8FC637;\">";
