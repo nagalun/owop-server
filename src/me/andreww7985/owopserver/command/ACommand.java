@@ -7,18 +7,19 @@ import me.andreww7985.owopserver.server.Player;
 public class ACommand extends Command {
 
 	public ACommand() {
-		super("Enable admin mode", "/admin <password>", "admin");
+		super("Say something only to admins", "/a <text>", "a");
 	}
 
 	@Override
 	public CommandResult execute(final String name, final String[] parameters, final Player player) {
-		if (parameters.length == 1) {
-			if (parameters[0].equals(OWOPServer.getInstance().getAdminPassword())) {
-				player.setAdmin(true);
-				player.sendMessage(ChatHelper.LIME + "Admin mode enabled! Type '/help' for a list of commands.");
-			} else {
-				player.kick();
+		if (parameters.length > 0) {
+			String text = ChatHelper.ORANGE + "[A] " + player.getID() + ": ";
+			for (final String word : parameters) {
+				text += word + " ";
 			}
+			OWOPServer.getInstance().broadcast(text, true);
+		} else {
+			return CommandResult.WRONG_ARGUMENTS;
 		}
 		return CommandResult.OK;
 	}
