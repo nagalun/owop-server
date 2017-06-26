@@ -1,61 +1,110 @@
-package me.andreww7985.owopserver.helper;
+package me.andreww7985.owopconverter.helper;
 
 import java.util.ArrayList;
 
 public class CompressionHelper {
-	private static ArrayList<Integer> repeatlocations;
-	private static ArrayList<Byte> compressed;
-	private static int cptr, repeats, thisClr, lastClr, i;
-	private static byte[] original;
-
-	private static void check() {
-		if (++repeats >= 3) {
-			repeatlocations.add(cptr & 0xFF);
-			repeatlocations.add(cptr >> 8 & 0xFF);
-			compressed.add(cptr++, (byte) (repeats & 0xFF));
-			compressed.add(cptr++, (byte) (repeats >> 8 & 0xFF));
-			compressed.add(cptr++, (byte) (lastClr & 0xFF));
-			compressed.add(cptr++, (byte) (lastClr >> 8 & 0xFF));
-			compressed.add(cptr++, (byte) (lastClr >> 16 & 0xFF));
-		} else {
-			for (int j = i - repeats * 3; j < i; j++) {
-				compressed.add(cptr++, original[j]);
-			}
-		}
-		repeats = 0;
-	}
-
 	public static byte[] compress(final byte[] original) {
-		CompressionHelper.original = original;
-		repeatlocations = new ArrayList<Integer>();
-		compressed = new ArrayList<Byte>();
-		cptr = 0;
-		lastClr = original[2] << 16 & 0xFF0000 | original[1] << 8 & 0xFF00 | original[0] & 0xFF;
-		repeats = 0;
-		for (i = 3; i < original.length; i += 3) {
-			thisClr = original[i + 2] << 16 & 0xFF0000 | original[i + 1] << 8 & 0xFF00 | original[i] & 0xFF;
+		int compressedSize = 0;
+		ArrayList<Integer> repeatlocations = new ArrayList<Integer>();
+		ArrayList<Integer> repeattimes = new ArrayList<Integer>();
+		int repeats = 1;
+
+		int lastClr = -1;
+		for (int i = 0; i < original.length; i += 2) {
+			int thisClr = original[i + 1] << 8 & 0xFF00 | original[i] & 0xFF;
 			if (lastClr == thisClr) {
 				repeats++;
 			} else {
-				check();
+				if (repeats >= 3) {
+					compressedSize -= (repeats - 1) * 2 - 2 - 2;
+					repeatlocations.add((compressedSize - 2 - 2 - 2) / 2);
+					repeattimes.add(repeats - 1); /* Will prevent overflows */
+					repeats = 1;
+					lastClr = thisClr;
+					continue;
+				}
+				repeats = 1;
+				lastClr = thisClr;
 			}
-			lastClr = thisClr;
+			compressedSize += 2;
 		}
-		check();
-		final byte[] u8compressed = new byte[2 + 2 + repeatlocations.size() + compressed.size()];
-		final int rllen = repeatlocations.size() / 2;
-		cptr = 0;
-		final int length = original.length;
+		if (repeats >= 3) { /* bug possibility here */
+			compressedSize -= (repeats /* - 1*/) * 2 - 2 - 2;
+			repeatlocations.add((compressedSize - 2 - 2) / 2);
+			repeattimes.add(repeats - 1);
+		}
+		/*System.out.print("S: " + compressedSize + ", NR: " + repeatlocations.size());
+		int s = 0;
+		for (final int numr : repeattimes) {
+			s += (1 + numr) * 2;
+			s -= 2;
+		}
+		s += compressedSize - repeatlocations.size() * 2;
+		System.out.println(", RS: " + s + ", OS: " + original.length);*/
+		final byte[] u8compressed = new byte[2 + 2 + repeatlocations.size() * 2 + compressedSize];
+		final int rllen = repeatlocations.size();
+		final int length = original.length / 2 - 1;
+		int offset = 2 + 2 + rllen * 2;
+		int cptr = 0;
+		int dptr = offset;
+		int optr = 0;
 		u8compressed[cptr++] = (byte) (length & 0xFF);
 		u8compressed[cptr++] = (byte) (length >> 8 & 0xFF);
 		u8compressed[cptr++] = (byte) (rllen & 0xFF);
 		u8compressed[cptr++] = (byte) (rllen >> 8 & 0xFF);
-		for (int i = 0; i < repeatlocations.size(); i++) {
-			u8compressed[cptr++] = (byte) (int) repeatlocations.get(i);
+		for (int i = 0; i < rllen; i++) {
+			int loc = repeatlocations.get(i);
+			int times = repeattimes.get(i);
+			u8compressed[cptr++] = (byte) (loc & 0xFF);
+			u8compressed[cptr++] = (byte) (loc >> 8 & 0xFF);
+			while (dptr < loc * 2 + offset) {
+				u8compressed[dptr++] = original[optr++];
+			}
+			u8compressed[dptr++] = (byte) (times & 0xFF);
+			u8compressed[dptr++] = (byte) (times >> 8 & 0xFF);
+			u8compressed[dptr++] = original[optr++]; /* RG */
+			u8compressed[dptr++] = original[optr++]; /* GB (565) */
+			optr += (1 + times - 1) * 2;
 		}
-		for (int i = 0; i < compressed.size(); i++) {
-			u8compressed[cptr++] = compressed.get(i);
+		while (optr < original.length) {
+			u8compressed[dptr++] = original[optr++];
 		}
 		return u8compressed;
+	}
+
+	public static byte[] decompress(final byte[] input) {
+		final int originalLength = (((input[1] & 0xFF) << 8 | (input[0] & 0xFF)) + 1) * 2;
+		// System.out.println(originalLength);
+		final byte[] output = new byte[originalLength];
+		final int numOfRepeats = (input[3] & 0xFF) << 8 | (input[2] & 0xFF);
+		final int offset = numOfRepeats * 2 + 4;
+		int uptr = 0;
+		int cptr = offset;
+		// System.out.println(Arrays.toString(input));
+		// System.out.println(numOfRepeats);
+		for (int i = 0; i < numOfRepeats; i++) {
+			final int currentRepeatLoc = 2 * ((((input[4 + i * 2 + 1] & 0xFF) << 8) | (input[4 + i * 2] & 0xFF)))
+					+ offset;
+			//System.out.println(currentRepeatLoc + ", " + i);
+			// System.out.println((input[4 + i * 2 + 1] & 0xFF));
+			while (cptr < currentRepeatLoc) {
+				output[uptr++] = input[cptr++];
+			}
+			int repeatedNum = ((input[cptr + 1] & 0xFF) << 8 | (input[cptr] & 0xFF)) + 1;
+			final int repeatedColorRGB = (input[cptr + 3] & 0xFF) << 8 | (input[cptr + 2] & 0xFF);
+			cptr += 4;
+			// System.out.println("REPEATED NUM!!!!!!" + repeatedNum + " " + i +
+			// " " + currentRepeatLoc);
+
+			while (repeatedNum-- != 0) {
+				output[uptr] = (byte) (repeatedColorRGB & 0xFF);
+				output[uptr + 1] = (byte) ((repeatedColorRGB & 0xFF00) >> 8);
+				uptr += 2;
+			}
+		}
+		while (cptr < input.length) {
+			output[uptr++] = input[cptr++];
+		}
+		return output;
 	}
 }
