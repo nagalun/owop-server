@@ -1,4 +1,4 @@
-package me.andreww7985.owopconverter.helper;
+package me.andreww7985.owopserver.helper;
 
 import java.util.ArrayList;
 
