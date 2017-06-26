@@ -22,14 +22,14 @@ public class TimingsHelper {
 	}
 
 	public static TimingsEntry getEntry(final String name) {
-		if (!entries.containsKey(name)) {
-			entries.put(name, instance.new TimingsEntry(name));
+		if (!entries.containsKey(name.toLowerCase())) {
+			entries.put(name.toLowerCase(), instance.new TimingsEntry(name));
 		}
-		return entries.get(name);
+		return entries.get(name.toLowerCase());
 	}
 
-	public static TimingsEntry[] getEntries() {
-		return (TimingsEntry[]) entries.values().toArray();
+	public static Object[] getEntries() {
+		return entries.values().toArray();
 	}
 
 	public class TimingsEntry {
@@ -44,7 +44,7 @@ public class TimingsHelper {
 			if (millis < minimal) {
 				minimal = millis;
 			}
-			if (millis < maximal) {
+			if (millis > maximal) {
 				maximal = millis;
 			}
 			average = (average + millis) / 2;

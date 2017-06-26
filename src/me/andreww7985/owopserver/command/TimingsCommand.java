@@ -25,8 +25,9 @@ public class TimingsCommand extends Command {
 				player.sendMessage(ChatHelper.LIME + "Minimal time - " + entry.getMinimal() + " ms");
 				player.sendMessage(ChatHelper.LIME + "Average time - " + entry.getAverage() + " ms");
 			} else {
-				for (final TimingsEntry entry : TimingsHelper.getEntries()) {
-					player.sendMessage(ChatHelper.LIME + entry.getName() + " - " + entry.getTotal() + " ms");
+				for (final Object entry : TimingsHelper.getEntries()) {
+					player.sendMessage(ChatHelper.LIME + ((TimingsEntry) entry).getName() + " - "
+							+ ((TimingsEntry) entry).getTotal() + " ms");
 				}
 			}
 		}

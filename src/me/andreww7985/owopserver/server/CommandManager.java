@@ -35,7 +35,7 @@ public class CommandManager {
 		}
 	}
 
-	public Command[] getCommands() {
-		return (Command[]) commands.values().toArray();
+	public Object[] getCommands() {
+		return commands.values().toArray();
 	}
 }
