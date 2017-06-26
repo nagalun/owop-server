@@ -18,7 +18,9 @@ import me.andreww7985.owopserver.command.HelpCommand;
 import me.andreww7985.owopserver.command.InfoCommand;
 import me.andreww7985.owopserver.command.KickCommand;
 import me.andreww7985.owopserver.command.TeleportCommand;
+import me.andreww7985.owopserver.command.TimingsCommand;
 import me.andreww7985.owopserver.helper.ChatHelper;
+import me.andreww7985.owopserver.helper.TimingsHelper;
 
 // TODO: Make plugin API and loader
 
@@ -46,6 +48,7 @@ public class OWOPServer extends WebSocketServer {
 		commandManager.registerCommand(new InfoCommand());
 		commandManager.registerCommand(new ACommand());
 		commandManager.registerCommand(new KickCommand());
+		commandManager.registerCommand(new TimingsCommand());
 	}
 
 	public static OWOPServer getInstance() {
@@ -87,6 +90,7 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
+		TimingsHelper.start("onPacket");
 		final InetSocketAddress addr = ws.getRemoteSocketAddress();
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
@@ -151,6 +155,7 @@ public class OWOPServer extends WebSocketServer {
 				break;
 			}
 		}
+		TimingsHelper.stop("onPacket");
 	}
 
 	@Override
@@ -164,14 +169,18 @@ public class OWOPServer extends WebSocketServer {
 		timer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
+				TimingsHelper.start("sendingUpdates");
+				worlds.forEach((k, world) -> world.updateCache());
 				players.forEach((k, player) -> player.getWorld().sendUpdates(player));
 				worlds.forEach((k, world) -> world.clearUpdates());
+				TimingsHelper.stop("sendingUpdates");
 			}
 		}, 0, 50);
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, String message) {
+		TimingsHelper.start("onChat");
 		// TODO: Implement timeout
 		final Player player = players.get(ws.getRemoteSocketAddress());
 		final String trimmed = message.trim();
@@ -193,7 +202,7 @@ public class OWOPServer extends WebSocketServer {
 				}
 			}
 		}
-
+		TimingsHelper.stop("onChat");
 	}
 
 	public void broadcast(final String text, final boolean adminOnly) {

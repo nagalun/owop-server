@@ -13,9 +13,8 @@ public class HelpCommand extends Command {
 	@Override
 	public CommandResult execute(final String name, final String[] parameters, final Player player) {
 		if (player.isAdmin()) {
-			for (final Object command : OWOPServer.getInstance().getCommandManager().getCommands()) {
-				player.sendMessage(ChatHelper.LIME + "/" + ((Command) command).getName() + " - "
-						+ ((Command) command).getDescription());
+			for (final Command command : OWOPServer.getInstance().getCommandManager().getCommands()) {
+				player.sendMessage(ChatHelper.LIME + "/" + command.getName() + " - " + command.getDescription());
 			}
 		}
 		return CommandResult.OK;

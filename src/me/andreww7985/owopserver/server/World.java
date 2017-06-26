@@ -13,6 +13,7 @@ public class World {
 	private final HashSet<Player> playerUpdates = new HashSet<Player>();
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
+	private byte[] updateCache;
 	private final String name;
 	private final WorldReader wr;
 	private int playersId, online;
@@ -46,14 +47,14 @@ public class World {
 		return chunk;
 	}
 
-	public void setPixel(final int x, final int y, final int rgb) {
-		final Chunk chunk = getChunk(x >> 4, y >> 4);
-		if (chunk.getPixel(x & 0xF, y & 0xF) == rgb) {
+	public void setPixel(final int x, final int y, final int rgb565) {
+		final Chunk chunk = getChunk(x >> 8, y >> 8);
+		if (chunk.getPixel(x & 0xFF, y & 0xFF) == rgb565) {
 			return;
 		}
-		chunk.setPixel(x & 0xF, y & 0xF, rgb);
+		chunk.setPixel(x & 0xFF, y & 0xFF, rgb565);
 		updateLock.lock();
-		pixelUpdates.add(new PixelUpdate(x, y, rgb));
+		pixelUpdates.add(new PixelUpdate(x, y, rgb565));
 		updateLock.unlock();
 	}
 
@@ -75,6 +76,10 @@ public class World {
 	}
 
 	public void sendUpdates(final Player player) {
+		player.send(updateCache);
+	}
+
+	public void updateCache() {
 		updateLock.lock();
 		final int players = playerUpdates.size(), pixels = pixelUpdates.size(), disconnects = playerDisconnects.size();
 
@@ -117,7 +122,7 @@ public class World {
 		});
 
 		updateLock.unlock();
-		player.send(buffer.array());
+		updateCache = buffer.array();
 	}
 
 	public int getOnline() {
@@ -137,14 +142,14 @@ public class World {
 		});
 	}
 
-	public void clearChunk(final int x, final int y) {
-		final Chunk chunk = getChunk(x, y);
-		for (int yy = 0; yy < 16; yy++) {
-			for (int xx = 0; xx < 16; xx++) {
-				if (chunk.getPixel(xx, yy) != 0xFFFFFF) {
-					pixelUpdates.add(new PixelUpdate(x * 16 + xx, y * 16 + yy, 0xFFFFFF));
+	public void clearChunk(final int chunkX, final int chunkY) {
+		final Chunk chunk = getChunk(chunkX, chunkY);
+		for (int x = 0; x < 256; x++) {
+			for (int y = 0; y < 256; y++) {
+				if (chunk.getPixel(x, y) != 0xFFFF) {
+					pixelUpdates.add(new PixelUpdate(chunkX * 256 + x, chunkY * 256 + y, 0xFFFF));
 				}
-				chunk.setPixel(xx, yy, 0xFFFFFF);
+				chunk.setPixel(x, y, 0xFFFF);
 			}
 		}
 	}

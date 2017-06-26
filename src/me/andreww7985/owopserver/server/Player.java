@@ -83,7 +83,7 @@ public class Player {
 	}
 
 	public void send(final byte[] data) {
-		if (isConnected()) {
+		if (isConnected() && data != null) {
 			webSocket.send(data);
 		}
 	}

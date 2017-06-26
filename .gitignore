@@ -1,5 +1,6 @@
 bin
 chunkdata
+worldData
 src/org
 .classpath
 .project

@@ -10,20 +10,18 @@ public class Chunk {
 		this.x = x;
 		this.y = y;
 	}
-	
-	public void setPixel(final int x, final int y, final int rgb) {
-		pixels[3 * (y * 16 + x)] = (byte) (rgb & 0xFF);
-		pixels[3 * (y * 16 + x) + 1] = (byte) (rgb >> 8 & 0xFF);
-		pixels[3 * (y * 16 + x) + 2] = (byte) (rgb >> 16 & 0xFF);
+
+	public void setPixel(final int x, final int y, final int rgb565) {
+		pixels[2 * (y * 256 + x)] = (byte) (rgb565 & 0xFF);
+		pixels[2 * (y * 256 + x) + 1] = (byte) (rgb565 >> 8 & 0xFF);
 		changed = true;
 	}
 
 	public int getPixel(final int x, final int y) {
-		int rgb = ((pixels[3 * (y * 16 + x)]) >>> 0 & 0xFF);
-		rgb |= ((pixels[3 * (y * 16 + x) + 1]) >>> 0 & 0xFF) << 8;
-		rgb |= ((pixels[3 * (y * 16 + x) + 2]) >>> 0 & 0xFF) << 16;
-		rgb &= 0xFFFFFF;
-		return rgb;
+		int rgb565 = ((pixels[2 * (y * 256 + x)]) >>> 0 & 0xFF);
+		rgb565 |= ((pixels[2 * (y * 256 + x) + 1]) >>> 0 & 0xFF) << 8;
+		rgb565 &= 0xFFFF;
+		return rgb565;
 	}
 
 	public byte[] getByteArray() {
@@ -37,9 +35,9 @@ public class Chunk {
 	public int getY() {
 		return y;
 	}
-	
+
 	public Boolean shouldSave() {
-		Boolean should = changed;
+		final Boolean should = changed;
 		/* We'll just assume whoever is calling this will save */
 		changed = false;
 		return should;
