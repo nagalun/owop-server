@@ -5,6 +5,7 @@ import java.util.HashMap;
 import me.andreww7985.owopserver.command.Command;
 import me.andreww7985.owopserver.command.CommandExecutor;
 import me.andreww7985.owopserver.command.CommandResult;
+import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
 
 public class CommandManager {
@@ -28,7 +29,7 @@ public class CommandManager {
 
 	public void registerCommand(final Command command) {
 		if (executors.containsKey(command.getName()) || commands.containsKey(command.getName())) {
-			OWOPServer.getInstance().getLogger().err("Command already registered : " + command.getName());
+			OWOPServer.getInstance().getLogManager().err("Command already registered : " + command.getName());
 		} else {
 			commands.put(command.getName(), command);
 			executors.put(command.getName(), command);

@@ -1,4 +1,4 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver.game;
 
 public class Chunk {
 	private final byte[] pixels;
@@ -11,16 +11,15 @@ public class Chunk {
 		this.y = y;
 	}
 
-	public void setPixel(final int x, final int y, final int rgb565) {
-		pixels[2 * (y * 256 + x)] = (byte) (rgb565 & 0xFF);
-		pixels[2 * (y * 256 + x) + 1] = (byte) (rgb565 >> 8 & 0xFF);
+	public void putPixel(final byte x, final byte y, final short rgb565) {
+		pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] = (byte) rgb565;
+		pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] = (byte) (rgb565 >> 8);
 		changed = true;
 	}
 
-	public int getPixel(final int x, final int y) {
-		int rgb565 = ((pixels[2 * (y * 256 + x)]) >>> 0 & 0xFF);
-		rgb565 |= ((pixels[2 * (y * 256 + x) + 1]) >>> 0 & 0xFF) << 8;
-		rgb565 &= 0xFFFF;
+	public short getPixel(final byte x, final byte y) {
+		short rgb565 = (short) (pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] & 0xFF);
+		rgb565 |= (pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] & 0xFF) << 8;
 		return rgb565;
 	}
 

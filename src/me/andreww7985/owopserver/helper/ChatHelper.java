@@ -12,6 +12,6 @@ public class ChatHelper {
 
 	public static String format(final String input) {
 		return input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
-				.replace("'", "&#x27;").replace("/", "&#x2F;");
+				.replace("'", "&#x27;");
 	}
 }

@@ -1,8 +1,8 @@
 package me.andreww7985.owopserver.command;
 
+import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
-import me.andreww7985.owopserver.server.Player;
 
 public class ACommand extends Command {
 
@@ -11,10 +11,10 @@ public class ACommand extends Command {
 	}
 
 	@Override
-	public CommandResult execute(final String name, final String[] parameters, final Player player) {
-		if (parameters.length > 0) {
-			String text = ChatHelper.ORANGE + "[A] " + player.getID() + ": ";
-			for (final String word : parameters) {
+	public CommandResult execute(final String name, final String[] arguments, final Player sender) {
+		if (arguments.length > 0) {
+			String text = ChatHelper.ORANGE + "[A] " + sender.getID() + ": ";
+			for (final String word : arguments) {
 				text += word + " ";
 			}
 			OWOPServer.getInstance().broadcast(text, true);

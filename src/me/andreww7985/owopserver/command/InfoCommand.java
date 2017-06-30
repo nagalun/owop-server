@@ -1,8 +1,8 @@
 package me.andreww7985.owopserver.command;
 
+import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
-import me.andreww7985.owopserver.server.Player;
 
 public class InfoCommand extends Command {
 
@@ -11,12 +11,12 @@ public class InfoCommand extends Command {
 	}
 
 	@Override
-	public CommandResult execute(final String name, final String[] parameters, final Player player) {
-		if (player.isAdmin()) {
-			player.sendMessage(ChatHelper.LIME + "Total online: " + OWOPServer.getInstance().getTotalOnline());
-			player.sendMessage(
-					ChatHelper.LIME + "Total chunks loaded: " + OWOPServer.getInstance().getTotalChunksLoaded());
-			player.sendMessage(ChatHelper.LIME + "Memory used: "
+	public CommandResult execute(final String name, final String[] arguments, final Player sender) {
+		if (sender.isAdmin()) {
+			sender.sendMessage(ChatHelper.BLUE + "Total online: " + OWOPServer.getInstance().getTotalOnline());
+			sender.sendMessage(
+					ChatHelper.BLUE + "Total chunks loaded: " + OWOPServer.getInstance().getTotalChunksLoaded());
+			sender.sendMessage(ChatHelper.BLUE + "Memory used: "
 					+ (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024 / 1024 + " MB");
 		}
 		return CommandResult.OK;

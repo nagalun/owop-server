@@ -1,8 +1,7 @@
 package me.andreww7985.owopserver.command;
 
+import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
-import me.andreww7985.owopserver.server.OWOPServer;
-import me.andreww7985.owopserver.server.Player;
 
 public class KickCommand extends Command {
 
@@ -11,21 +10,22 @@ public class KickCommand extends Command {
 	}
 
 	@Override
-	public CommandResult execute(final String name, final String[] parameters, final Player player) {
-		if (player.isAdmin()) {
-			if (parameters.length == 1) {
+	public CommandResult execute(final String name, final String[] arguments, final Player sender) {
+		if (sender.isAdmin()) {
+			if (arguments.length == 1) {
 				int id;
 				try {
-					id = Integer.parseInt(parameters[0]);
+					id = Integer.parseInt(arguments[0]);
 				} catch (final Exception e) {
 					return CommandResult.WRONG_ARGUMENTS;
 				}
-				final Player toPlayer = OWOPServer.getInstance().getPlayer(id);
-				if (toPlayer == null) {
-					player.sendMessage(ChatHelper.RED + "Can't find that player!");
+				final Player player = sender.getWorld().getPlayer(id);
+				if (player == null) {
+					sender.sendMessage(ChatHelper.RED + "Can't find that player!");
 					return CommandResult.OK;
 				}
-				toPlayer.kick();
+				player.sendMessage(ChatHelper.RED + "You were kicked by admin!");
+				player.kick();
 			} else {
 				return CommandResult.WRONG_ARGUMENTS;
 			}

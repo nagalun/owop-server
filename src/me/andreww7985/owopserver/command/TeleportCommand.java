@@ -1,8 +1,7 @@
 package me.andreww7985.owopserver.command;
 
+import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
-import me.andreww7985.owopserver.server.OWOPServer;
-import me.andreww7985.owopserver.server.Player;
 
 public class TeleportCommand extends Command {
 
@@ -11,30 +10,30 @@ public class TeleportCommand extends Command {
 	}
 
 	@Override
-	public CommandResult execute(final String name, final String[] parameters, final Player player) {
-		if (player.isAdmin()) {
-			if (parameters.length == 1) {
+	public CommandResult execute(final String name, final String[] arguments, final Player sender) {
+		if (sender.isAdmin()) {
+			if (arguments.length == 1) {
 				int id;
 				try {
-					id = Integer.parseInt(parameters[0]);
+					id = Integer.parseInt(arguments[0]);
 				} catch (final Exception e) {
 					return CommandResult.WRONG_ARGUMENTS;
 				}
-				final Player toPlayer = OWOPServer.getInstance().getPlayer(id);
+				final Player toPlayer = sender.getWorld().getPlayer(id);
 				if (toPlayer == null) {
-					player.sendMessage(ChatHelper.RED + "Can't find that player!");
+					sender.sendMessage(ChatHelper.RED + "Can't find that player!");
 					return CommandResult.OK;
 				}
-				player.teleport(toPlayer.getX() >> 4, toPlayer.getY() >> 4);
-			} else if (parameters.length == 2) {
+				sender.teleport(toPlayer.getX() >> 4, toPlayer.getY() >> 4);
+			} else if (arguments.length == 2) {
 				int x, y;
 				try {
-					x = Integer.parseInt(parameters[0]);
-					y = Integer.parseInt(parameters[1]);
+					x = Integer.parseInt(arguments[0]);
+					y = Integer.parseInt(arguments[1]);
 				} catch (final Exception e) {
 					return CommandResult.WRONG_ARGUMENTS;
 				}
-				player.teleport(x, y);
+				sender.teleport(x, y);
 			} else {
 				return CommandResult.WRONG_ARGUMENTS;
 			}

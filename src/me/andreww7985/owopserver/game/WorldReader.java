@@ -1,11 +1,11 @@
-package me.andreww7985.owopserver.server;
+package me.andreww7985.owopserver.game;
 
 import java.io.File;
 import java.nio.file.Files;
 
 import me.andreww7985.owopserver.helper.CompressionHelper;
+import me.andreww7985.owopserver.server.OWOPServer;
 
-/* Reads worlds of the c++ server */
 public class WorldReader {
 	private final static String worldDir = "worldData";
 	private final String worldName;
@@ -15,8 +15,14 @@ public class WorldReader {
 		(new File(worldDir + File.separator + worldname)).mkdirs();
 	}
 
-	public void writeChunk(final Chunk chunk, final int x, final int y) {
-		// TODO: Save chunk
+	public void saveChunk(final Chunk chunk) {
+		final File chunkFile = new File(worldDir + File.separator + worldName + File.separator + "r." + chunk.getX()
+				+ "." + chunk.getY() + ".pxr");
+		try {
+			Files.write(chunkFile.toPath(), CompressionHelper.compress(chunk.getByteArray()));
+		} catch (final Exception e) {
+			OWOPServer.getInstance().getLogManager().exception(e);
+		}
 	}
 
 	public Chunk readChunk(final int x, final int y) {
@@ -25,7 +31,6 @@ public class WorldReader {
 		try {
 			return new Chunk(CompressionHelper.decompress(Files.readAllBytes(chunkFile.toPath())), x, y);
 		} catch (final Exception e) {
-			OWOPServer.getInstance().getLogger().exception(e);
 			return new Chunk(getEmptyChunk(), x, y);
 		}
 	}
