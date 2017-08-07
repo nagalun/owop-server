@@ -18,9 +18,8 @@ public class Chunk {
 	}
 
 	public short getPixel(final byte x, final byte y) {
-		short rgb565 = (short) (pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] & 0xFF);
-		rgb565 |= (pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] & 0xFF) << 8;
-		return rgb565;
+		return (short) ((pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] & 0xFF)
+				| ((pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] & 0xFF) << 8));
 	}
 
 	public byte[] getByteArray() {

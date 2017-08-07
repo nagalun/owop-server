@@ -39,7 +39,6 @@ public class Player {
 		buffer.put((byte) 2);
 		buffer.putInt(x);
 		buffer.putInt(y);
-		buffer.position(9);
 		buffer.put(compressedChunk);
 		send(buffer.array());
 	}

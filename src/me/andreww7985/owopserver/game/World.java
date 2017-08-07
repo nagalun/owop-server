@@ -12,7 +12,7 @@ import me.andreww7985.owopserver.server.OWOPServer;
 public class World {
 	private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<Integer, Player>();
 	private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<Long, Chunk>();
-	private final ReentrantLock updateLock = new ReentrantLock();
+	private final ReentrantLock updatesLock = new ReentrantLock();
 	private final HashSet<Player> playerUpdates = new HashSet<Player>();
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
@@ -51,7 +51,7 @@ public class World {
 	}
 
 	public void putPixel(final int x, final int y, final short rgb565) {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			final Chunk chunk = getChunk(x >> 8, y >> 8);
 			if (chunk.getPixel((byte) x, (byte) y) == rgb565) {
@@ -60,37 +60,37 @@ public class World {
 			chunk.putPixel((byte) x, (byte) y, rgb565);
 			pixelUpdates.add(new PixelUpdate(x, y, rgb565));
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
 	public void playerMoved(final Player player) {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			playerUpdates.add(player);
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
 	public void playerJoined(final Player player) {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			online++;
 			players.put(player.getID(), player);
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
 	public void playerLeft(final Player player) {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			online--;
 			players.remove(player);
 			playerDisconnects.add(player.getID());
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
@@ -101,7 +101,7 @@ public class World {
 	}
 
 	public void updateCache() {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			final int players = playerUpdates.size(), pixels = pixelUpdates.size(),
 					disconnects = playerDisconnects.size();
@@ -145,7 +145,7 @@ public class World {
 			playerDisconnects.clear();
 			pixelUpdates.clear();
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
@@ -168,7 +168,7 @@ public class World {
 	}
 
 	public void clearChunk(final int chunk16X, final int chunk16Y, final short rgb565) {
-		updateLock.lock();
+		updatesLock.lock();
 		try {
 			final Chunk chunk = getChunk(chunk16X >> 4, chunk16Y >> 4);
 			for (int x = 0; x < 16; x++) {
@@ -181,12 +181,12 @@ public class World {
 				}
 			}
 		} finally {
-			updateLock.unlock();
+			updatesLock.unlock();
 		}
 	}
 
 	public void broadcast(final String text) {
-		OWOPServer.getInstance().getLogManager().chat("'" + name + "' " + text);
+		OWOPServer.getInstance().getLogManager().chat(this + " " + text);
 		players.forEach((k, player) -> player.sendMessage(text));
 	}
 
@@ -196,6 +196,6 @@ public class World {
 
 	@Override
 	public String toString() {
-		return name;
+		return "'" + name + "'";
 	}
 }

@@ -4,9 +4,11 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -29,13 +31,13 @@ public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
 	private final ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
-	private final ConcurrentHashMap<String, World> worlds = new ConcurrentHashMap<String, World>();
+	private final HashMap<String, World> worlds = new HashMap<String, World>();
 	private final Timer updatesTimer = new Timer(), AFKTimer = new Timer();
+	private final ReentrantLock worldsLock = new ReentrantLock();
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
 	private final String adminPassword;
-	private boolean working;
 
 	public OWOPServer(final String adminPassword, final int port) throws Exception {
 		super(new InetSocketAddress(port));
@@ -60,8 +62,6 @@ public class OWOPServer extends WebSocketServer {
 				OWOPServer.getInstance().shutdown();
 			}
 		});
-
-		working = true;
 
 		logManager.info("Admin password is '" + adminPassword + "'");
 		logManager.info("Starting server on port " + this.getAddress().getPort());
@@ -97,9 +97,7 @@ public class OWOPServer extends WebSocketServer {
 			players.remove(addr);
 			totalOnline--;
 			if (world.getOnline() < 1) {
-				world.save();
-				worlds.remove(world.getName());
-				logManager.info("Unloaded world '" + world + "'");
+				unloadWorld(world);
 			}
 		} else {
 			logManager.info("Socket from " + addr + " disconnected");
@@ -119,25 +117,20 @@ public class OWOPServer extends WebSocketServer {
 				return;
 			}
 			final byte[] bytes = message.array();
-			String worldname = "";
+			String worldName = "";
 
 			for (int i = 0; i < bytes.length - 2; i++) {
-				worldname += (char) bytes[i];
+				worldName += (char) bytes[i];
 			}
 
 			// TODO: Make world name check
 
-			World world = worlds.get(worldname);
-			if (world == null) {
-				world = new World(worldname);
-				worlds.put(worldname, world);
-				logManager.info("Loaded world '" + world + "'");
-			}
+			final World world = getWorld(worldName);
 
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
-			player.sendMessage(ChatHelper.LIME + "Joined world '" + world + "'. Your ID: " + player.getID());
+			player.sendMessage(ChatHelper.LIME + "Joined world " + world + ". Your ID: " + player.getID());
 			logManager.info("Joined player " + player + " from " + addr);
 			totalOnline++;
 		} else {
@@ -252,30 +245,61 @@ public class OWOPServer extends WebSocketServer {
 
 	public void shutdown() {
 		try {
-			if (!working) {
-				return;
-			}
-			working = false;
 			logManager.info("Shutting down server...");
 			broadcast(ChatHelper.RED + "Shutting down server...", false);
-			worlds.forEach((k, world) -> {
-				world.save();
-				logManager.info("Unloaded world '" + world + "'");
-			});
+			for (final World world : worlds.values()) {
+				unloadWorld(world);
+			}
 			updatesTimer.cancel();
 			AFKTimer.cancel();
 			stop();
 		} catch (final Exception e) {
-			working = false;
-			logManager.err("Fatal error! Can't shutdown! Exiting using System.exit(1)");
+			logManager.err("Something happened while shutting down!");
 			logManager.exception(e);
-			System.exit(1);
 		}
 
 	}
 
-	public World getWorld(final String world) {
-		return worlds.get(world);
+	public World getWorld(final String worldName) {
+		worldsLock.lock();
+		try {
+			World world = worlds.get(worldName);
+			if (world == null) {
+				world = new World(worldName);
+				worlds.put(worldName, world);
+				logManager.info("Loaded world " + world);
+			}
+			return world;
+		} finally {
+			worldsLock.unlock();
+		}
+	}
+
+	public void unloadWorld(final String worldName) {
+		worldsLock.lock();
+		try {
+			final World world = worlds.get(worldName);
+			if (world != null) {
+				world.save();
+				worlds.remove(worldName);
+				logManager.info("Unloaded world " + world);
+			}
+		} finally {
+			worldsLock.unlock();
+		}
+	}
+
+	public void unloadWorld(final World world) {
+		worldsLock.lock();
+		try {
+			if (world != null) {
+				world.save();
+				worlds.remove(world.getName());
+				logManager.info("Unloaded world " + world);
+			}
+		} finally {
+			worldsLock.unlock();
+		}
 	}
 
 	public void chunksLoaded(final int num) {
