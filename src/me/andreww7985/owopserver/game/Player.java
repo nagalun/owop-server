@@ -3,10 +3,10 @@ package me.andreww7985.owopserver.game;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import org.java_websocket.WebSocket;
-
 import me.andreww7985.owopserver.helper.CompressionHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
+
+import me.nagalun.jwebsockets.WebSocket;
 
 public class Player {
 	public static final int PRATE = 32, PTIME = 4, CRATE = 4, CTIME = 6, AFKMIN = 5;
@@ -98,7 +98,7 @@ public class Player {
 	}
 
 	public boolean isConnected() {
-		return webSocket.isOpen();
+		return webSocket.isConnected();
 	}
 
 	public void send(final byte[] data) {

@@ -1,18 +1,17 @@
 package me.andreww7985.owopserver.server;
 
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-
-import org.java_websocket.WebSocket;
-import org.java_websocket.handshake.ClientHandshake;
-import org.java_websocket.server.WebSocketServer;
 
 import me.andreww7985.owopserver.command.ACommand;
 import me.andreww7985.owopserver.command.AdminCommand;
@@ -26,11 +25,14 @@ import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.timings.TimingsRecord;
+import me.nagalun.jwebsockets.HttpRequest;
+import me.nagalun.jwebsockets.WebSocket;
+import me.nagalun.jwebsockets.WebSocketServer;
 
 public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
-	private final ConcurrentHashMap<InetSocketAddress, Player> players = new ConcurrentHashMap<InetSocketAddress, Player>();
+	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
 	private final HashMap<String, World> worlds = new HashMap<String, World>();
 	private final Timer updatesTimer = new Timer(), AFKTimer = new Timer();
 	private final ReentrantLock worldsLock = new ReentrantLock();
@@ -40,7 +42,8 @@ public class OWOPServer extends WebSocketServer {
 	private final String adminPassword;
 
 	public OWOPServer(final String adminPassword, final int port) throws Exception {
-		super(new InetSocketAddress(port));
+		/* NOTE: Maximum message size set to 128 */
+		super(port, Arrays.asList(StandardSocketOptions.TCP_NODELAY, StandardSocketOptions.SO_REUSEADDR), 128);
 		commandManager = new CommandManager();
 		timingsManager = new TimingsManager();
 		logManager = new LogManager();
@@ -64,7 +67,7 @@ public class OWOPServer extends WebSocketServer {
 		});
 
 		logManager.info("Admin password is '" + adminPassword + "'");
-		logManager.info("Starting server on port " + this.getAddress().getPort());
+		logManager.info("Starting server on port " + port);
 	}
 
 	public static OWOPServer getInstance() {
@@ -80,18 +83,18 @@ public class OWOPServer extends WebSocketServer {
 	}
 
 	@Override
-	public void onOpen(final WebSocket ws, final ClientHandshake handshake) {
+	public void onOpen(final WebSocket ws) {
 		logManager.info("Connected new socket from " + ws.getRemoteSocketAddress());
 	}
 
 	@Override
-	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
-		final InetSocketAddress addr = ws.getRemoteSocketAddress();
+	public void onClose(final WebSocket ws, final int code, final String reason) {
+		final SocketAddress addr = ws.getRemoteSocketAddress();
 		final Player player = players.get(addr);
 		if (player != null) {
-			if (remote) {
-				logManager.info("Player " + player + " disconnected");
-			}
+			//if (remote) {
+			logManager.info("Player " + player + " disconnected");
+			//}
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
@@ -107,23 +110,37 @@ public class OWOPServer extends WebSocketServer {
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
 		final TimingsRecord tr = TimingsRecord.start("onPacket");
-		final InetSocketAddress addr = ws.getRemoteSocketAddress();
+		final SocketAddress addr = ws.getRemoteSocketAddress();
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
-			if (message.capacity() < 3 || message.getShort(message.capacity() - 2) != 1337) {
+			int size = message.capacity();
+			boolean verified = true;
+			firstloop: do {
+				if (size < 3 || size - 2 > 24 || message.getShort(size - 2) != 1337) {
+					verified = false;
+					break firstloop;
+				}
+				
+				/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
+				for (int i = 0; i < size - 2; i++) {
+					byte b = message.get(i);
+					if (!((b > 96 && b < 123) ||
+							(b > 47 && b < 58) ||
+							b == 95 || b == 46)) {
+						verified = false;
+						break firstloop;
+					}
+				}
+			} while (false);
+			if (!verified) {
 				logManager.warn("Join verification failed for socket from " + addr);
 				ws.close();
 				return;
 			}
-			final byte[] bytes = message.array();
-			String worldName = "";
-
-			for (int i = 0; i < bytes.length - 2; i++) {
-				worldName += (char) bytes[i];
-			}
-
-			// TODO: Make world name check
+			
+			message.limit(size - 2);
+			String worldName = StandardCharsets.US_ASCII.decode(message).toString();
 
 			final World world = getWorld(worldName);
 
@@ -134,7 +151,7 @@ public class OWOPServer extends WebSocketServer {
 			logManager.info("Joined player " + player + " from " + addr);
 			totalOnline++;
 		} else {
-			switch (message.array().length) {
+			switch (message.capacity()) {
 			case 8: {
 				final int x = message.getInt(0), y = message.getInt(4);
 				player.getChunk(x, y);
@@ -171,10 +188,10 @@ public class OWOPServer extends WebSocketServer {
 		timingsManager.add(tr);
 	}
 
-	@Override
+	/*@Override
 	public void onError(final WebSocket conn, final Exception ex) {
 		logManager.exception(ex);
-	}
+	}*/
 
 	@Override
 	public void onStart() {
@@ -324,5 +341,15 @@ public class OWOPServer extends WebSocketServer {
 
 	public TimingsManager getTimingsManager() {
 		return timingsManager;
+	}
+
+	@Override
+	public void onStop() {
+		
+	}
+
+	@Override
+	public boolean onHttpRequest(SocketChannel sock, HttpRequest req) {
+		return true;
 	}
 }
