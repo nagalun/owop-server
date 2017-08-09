@@ -87,7 +87,7 @@ public class World {
 		updatesLock.lock();
 		try {
 			online--;
-			players.remove(player);
+			players.remove(player.getID());
 			playerDisconnects.add(player.getID());
 		} finally {
 			updatesLock.unlock();
