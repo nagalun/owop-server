@@ -8,8 +8,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,6 +23,7 @@ import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.timings.TimingsRecord;
+import me.nagalun.async.ITaskScheduler;
 import me.nagalun.jwebsockets.HttpRequest;
 import me.nagalun.jwebsockets.WebSocket;
 import me.nagalun.jwebsockets.WebSocketServer;
@@ -34,7 +33,7 @@ public class OWOPServer extends WebSocketServer {
 	private int totalChunksLoaded, totalOnline;
 	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
 	private final HashMap<String, World> worlds = new HashMap<String, World>();
-	private final Timer updatesTimer = new Timer(), AFKTimer = new Timer();
+	private int updatesTimerId, AFKTimerId;
 	private final ReentrantLock worldsLock = new ReentrantLock();
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
@@ -88,13 +87,13 @@ public class OWOPServer extends WebSocketServer {
 	}
 
 	@Override
-	public void onClose(final WebSocket ws, final int code, final String reason) {
+	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
 		final SocketAddress addr = ws.getRemoteSocketAddress();
 		final Player player = players.get(addr);
 		if (player != null) {
-			//if (remote) {
-			logManager.info("Player " + player + " disconnected");
-			//}
+			if (remote) {
+				logManager.info("Player " + player + " disconnected");
+			}
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
@@ -116,30 +115,19 @@ public class OWOPServer extends WebSocketServer {
 		if (player == null) {
 			int size = message.capacity();
 			boolean verified = true;
-			firstloop: do {
-				if (size < 3 || size - 2 > 24 || message.getShort(size - 2) != 1337) {
-					verified = false;
-					break firstloop;
-				}
-				
-				/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
-				for (int i = 0; i < size - 2; i++) {
-					byte b = message.get(i);
-					if (!((b > 96 && b < 123) ||
-							(b > 47 && b < 58) ||
-							b == 95 || b == 46)) {
-						verified = false;
-						break firstloop;
-					}
-				}
-			} while (false);
-			if (!verified) {
+			
+			if (size < 3 || size - 2 > 24 || message.getShort(size - 2) != 1337) {
+				verified = false;
+			}
+			
+			message.limit(size - 2);
+			
+			if (!(verified && isWorldNameValid(message))) {
 				logManager.warn("Join verification failed for socket from " + addr);
 				ws.close();
 				return;
 			}
 			
-			message.limit(size - 2);
 			String worldName = StandardCharsets.US_ASCII.decode(message).toString();
 
 			final World world = getWorld(worldName);
@@ -195,38 +183,36 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public void onStart() {
-		updatesTimer.scheduleAtFixedRate(new TimerTask() {
-			@Override
-			public void run() {
-				final TimingsRecord tr = TimingsRecord.start("sendUpdates");
-				for (final Object world : worlds.values().toArray()) {
-					((World) world).updateCache();
-					((World) world).sendUpdates();
+		ITaskScheduler ts = getTaskScheduler();
+		updatesTimerId = ts.setInterval(() -> {
+			//System.out.println("Called updates");
+			final TimingsRecord tr = TimingsRecord.start("sendUpdates");
+			for (final Object world : worlds.values().toArray()) {
+				((World) world).updateCache();
+				((World) world).sendUpdates();
+			}
+			timingsManager.add(tr);
+		}, 50);
+		AFKTimerId = ts.setInterval(() -> {
+			System.out.println("Called AFK");
+			final TimingsRecord tr = TimingsRecord.start("AFKCheck");
+			players.forEach((k, player) -> {
+				if (System.currentTimeMillis() - player.getLastMoveTime() > Player.AFKMIN * 60000) {
+					logManager.warn("Player " + player + " is inactive too long");
+					player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
+					player.kick();
 				}
-				timingsManager.add(tr);
-			}
-		}, 0, 50);
-		AFKTimer.scheduleAtFixedRate(new TimerTask() {
-			@Override
-			public void run() {
-				final TimingsRecord tr = TimingsRecord.start("AFKCheck");
-				players.forEach((k, player) -> {
-					if (System.currentTimeMillis() - player.getLastMoveTime() > Player.AFKMIN * 60000) {
-						logManager.warn("Player " + player + " is inactive too long");
-						player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
-						player.kick();
-					}
-				});
-				timingsManager.add(tr);
-			}
-		}, 0, 60000);
+			});
+			timingsManager.add(tr);
+		}, 60000);
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, String message) {
 		final TimingsRecord tr = TimingsRecord.start("onChat");
 		final Player player = players.get(ws.getRemoteSocketAddress());
-		if (!message.isEmpty() && player != null && message.length() <= 80 && message.length() > 1
+		/* length + 1 for verification byte */
+		if (!message.isEmpty() && player != null && message.length() <= 80 + 1 && message.length() > 1
 				&& message.codePointAt(message.length() - 1) == 10) {
 			message = message.trim();
 
@@ -267,8 +253,9 @@ public class OWOPServer extends WebSocketServer {
 			for (final World world : worlds.values()) {
 				unloadWorld(world);
 			}
-			updatesTimer.cancel();
-			AFKTimer.cancel();
+			ITaskScheduler ts = getTaskScheduler();
+			ts.clear(AFKTimerId);
+			ts.clear(updatesTimerId);
 			stop();
 		} catch (final Exception e) {
 			logManager.err("Something happened while shutting down!");
@@ -341,6 +328,19 @@ public class OWOPServer extends WebSocketServer {
 
 	public TimingsManager getTimingsManager() {
 		return timingsManager;
+	}
+	
+	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {
+		/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
+		for (int i = 0; i < nameBytes.limit(); i++) {
+			byte b = nameBytes.get(i);
+			if (!((b > 96 && b < 123) ||
+					(b > 47 && b < 58) ||
+					b == 95 || b == 46)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
