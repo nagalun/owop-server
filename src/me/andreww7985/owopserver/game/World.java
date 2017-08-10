@@ -109,8 +109,7 @@ public class World {
 			buffer.putInt(id);
 		});
 
-		buffer.position(0);
-		buffer.limit(buffer.capacity());
+		buffer.flip();
 		final PreparedMessage data = OWOPServer.getInstance().prepareMessage(buffer);
 
 		playerUpdates.clear();
@@ -118,6 +117,8 @@ public class World {
 		pixelUpdates.clear();
 
 		this.players.forEach((k, player) -> player.send(data));
+		
+		data.finalizeMessage();
 	}
 
 	public int getOnline() {
