@@ -140,7 +140,7 @@ public class Player {
 
 	public void kick() {
 		OWOPServer.getInstance().getLogManager().warn("Kicked player " + this);
-		world.playerLeft(this);
+		//world.playerLeft(this);
 		webSocket.close();
 	}
 

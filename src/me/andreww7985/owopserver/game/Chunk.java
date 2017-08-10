@@ -3,7 +3,7 @@ package me.andreww7985.owopserver.game;
 public class Chunk {
 	private final byte[] pixels;
 	private final int x, y;
-	private Boolean changed = false;
+	private boolean changed = false;
 
 	public Chunk(final byte[] pixeldata, final int x, final int y) {
 		this.pixels = pixeldata;
@@ -34,8 +34,8 @@ public class Chunk {
 		return y;
 	}
 
-	public Boolean shouldSave() {
-		final Boolean should = changed;
+	public boolean shouldSave() {
+		final boolean should = changed;
 		/* We'll just assume whoever is calling this will save */
 		changed = false;
 		return should;

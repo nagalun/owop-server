@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 import me.andreww7985.owopserver.command.ACommand;
 import me.andreww7985.owopserver.command.AdminCommand;
@@ -31,10 +30,10 @@ import me.nagalun.jwebsockets.WebSocketServer;
 public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
+	/* Needs to be ConcurrentHashMap because removing items while iterating is not allowed (AFK Timer) */
 	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
-	private final HashMap<String, World> worlds = new HashMap<String, World>();
+	private final HashMap<String, World> worlds = new HashMap<>();
 	private int updatesTimerId, AFKTimerId;
-	private final ReentrantLock worldsLock = new ReentrantLock();
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
@@ -185,7 +184,6 @@ public class OWOPServer extends WebSocketServer {
 	public void onStart() {
 		ITaskScheduler ts = getTaskScheduler();
 		updatesTimerId = ts.setInterval(() -> {
-			//System.out.println("Called updates");
 			final TimingsRecord tr = TimingsRecord.start("sendUpdates");
 			for (final Object world : worlds.values().toArray()) {
 				((World) world).updateCache();
@@ -194,10 +192,10 @@ public class OWOPServer extends WebSocketServer {
 			timingsManager.add(tr);
 		}, 50);
 		AFKTimerId = ts.setInterval(() -> {
-			System.out.println("Called AFK");
 			final TimingsRecord tr = TimingsRecord.start("AFKCheck");
+			final long time = System.currentTimeMillis();
 			players.forEach((k, player) -> {
-				if (System.currentTimeMillis() - player.getLastMoveTime() > Player.AFKMIN * 60000) {
+				if (time - player.getLastMoveTime() > Player.AFKMIN * 60000) {
 					logManager.warn("Player " + player + " is inactive too long");
 					player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
 					player.kick();
@@ -265,44 +263,29 @@ public class OWOPServer extends WebSocketServer {
 	}
 
 	public World getWorld(final String worldName) {
-		worldsLock.lock();
-		try {
-			World world = worlds.get(worldName);
-			if (world == null) {
-				world = new World(worldName);
-				worlds.put(worldName, world);
-				logManager.info("Loaded world " + world);
-			}
-			return world;
-		} finally {
-			worldsLock.unlock();
+		World world = worlds.get(worldName);
+		if (world == null) {
+			world = new World(worldName);
+			worlds.put(worldName, world);
+			logManager.info("Loaded world " + world);
 		}
+		return world;
 	}
 
 	public void unloadWorld(final String worldName) {
-		worldsLock.lock();
-		try {
-			final World world = worlds.get(worldName);
-			if (world != null) {
-				world.save();
-				worlds.remove(worldName);
-				logManager.info("Unloaded world " + world);
-			}
-		} finally {
-			worldsLock.unlock();
+		final World world = worlds.get(worldName);
+		if (world != null) {
+			world.save();
+			worlds.remove(worldName);
+			logManager.info("Unloaded world " + world);
 		}
 	}
 
 	public void unloadWorld(final World world) {
-		worldsLock.lock();
-		try {
-			if (world != null) {
-				world.save();
-				worlds.remove(world.getName());
-				logManager.info("Unloaded world " + world);
-			}
-		} finally {
-			worldsLock.unlock();
+		if (world != null) {
+			world.save();
+			worlds.remove(world.getName());
+			logManager.info("Unloaded world " + world);
 		}
 	}
 
