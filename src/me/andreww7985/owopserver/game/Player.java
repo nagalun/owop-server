@@ -5,11 +5,11 @@ import java.nio.ByteOrder;
 
 import me.andreww7985.owopserver.helper.CompressionHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
-
+import me.nagalun.jwebsockets.PreparedMessage;
 import me.nagalun.jwebsockets.WebSocket;
 
 public class Player {
-	public static final int PRATE = 32, PTIME = 4, CRATE = 4, CTIME = 6, AFKMIN = 5;
+	public static final int PRATE = 99999999, PTIME = 4, CRATE = 4, CTIME = 6, AFKMIN = 5;
 	private long plastCheck = System.currentTimeMillis(), clastCheck = plastCheck, lastMoveTime = plastCheck;
 	private float pallowance = PRATE, callowance = CRATE;
 	private final WebSocket webSocket;
@@ -107,6 +107,12 @@ public class Player {
 		}
 	}
 
+	public void send(final PreparedMessage data) {
+		if (isConnected() && data != null) {
+			webSocket.sendPrepared(data);
+		}
+	}
+
 	public void sendMessage(final String text) {
 		if (isConnected()) {
 			webSocket.send(text);
@@ -140,7 +146,6 @@ public class Player {
 
 	public void kick() {
 		OWOPServer.getInstance().getLogManager().warn("Kicked player " + this);
-		//world.playerLeft(this);
 		webSocket.close();
 	}
 
