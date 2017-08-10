@@ -30,10 +30,13 @@ import me.nagalun.jwebsockets.WebSocketServer;
 public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
-	/* Needs to be ConcurrentHashMap because removing items while iterating is not allowed (AFK Timer) */
+	/*
+	 * Needs to be ConcurrentHashMap because removing items while iterating is
+	 * not allowed (AFK Timer)
+	 */
 	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
 	private final HashMap<String, World> worlds = new HashMap<>();
-	private int updatesTimerId, AFKTimerId;
+	private int updatesTimerID, AFKTimerID;
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
@@ -112,29 +115,28 @@ public class OWOPServer extends WebSocketServer {
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
-			int size = message.capacity();
+			final int size = message.capacity();
 			boolean verified = true;
-			
+
 			if (size < 3 || size - 2 > 24 || message.getShort(size - 2) != 1337) {
 				verified = false;
 			}
-			
+
 			message.limit(size - 2);
-			
+
 			if (!(verified && isWorldNameValid(message))) {
 				logManager.warn("Join verification failed for socket from " + addr);
 				ws.close();
 				return;
 			}
-			
-			String worldName = StandardCharsets.US_ASCII.decode(message).toString();
+
+			final String worldName = StandardCharsets.US_ASCII.decode(message).toString();
 
 			final World world = getWorld(worldName);
 
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
-			player.sendMessage(ChatHelper.LIME + "Joined world " + world + ". Your ID: " + player.getID());
 			logManager.info("Joined player " + player + " from " + addr);
 			totalOnline++;
 		} else {
@@ -175,34 +177,12 @@ public class OWOPServer extends WebSocketServer {
 		timingsManager.add(tr);
 	}
 
-	/*@Override
-	public void onError(final WebSocket conn, final Exception ex) {
-		logManager.exception(ex);
-	}*/
-
 	@Override
 	public void onStart() {
-		ITaskScheduler ts = getTaskScheduler();
-		updatesTimerId = ts.setInterval(() -> {
-			final TimingsRecord tr = TimingsRecord.start("sendUpdates");
-			for (final Object world : worlds.values().toArray()) {
-				((World) world).updateCache();
-				((World) world).sendUpdates();
-			}
-			timingsManager.add(tr);
-		}, 50);
-		AFKTimerId = ts.setInterval(() -> {
-			final TimingsRecord tr = TimingsRecord.start("AFKCheck");
-			final long time = System.currentTimeMillis();
-			players.forEach((k, player) -> {
-				if (time - player.getLastMoveTime() > Player.AFKMIN * 60000) {
-					logManager.warn("Player " + player + " is inactive too long");
-					player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
-					player.kick();
-				}
-			});
-			timingsManager.add(tr);
-		}, 60000);
+		final ITaskScheduler ts = getTaskScheduler();
+
+		updatesTimerID = ts.setInterval(() -> sendUpdates(), 50);
+		AFKTimerID = ts.setInterval(() -> checkAFK(), 60000);
 	}
 
 	@Override
@@ -251,9 +231,9 @@ public class OWOPServer extends WebSocketServer {
 			for (final World world : worlds.values()) {
 				unloadWorld(world);
 			}
-			ITaskScheduler ts = getTaskScheduler();
-			ts.clear(AFKTimerId);
-			ts.clear(updatesTimerId);
+			final ITaskScheduler ts = getTaskScheduler();
+			ts.clear(AFKTimerID);
+			ts.clear(updatesTimerID);
 			stop();
 		} catch (final Exception e) {
 			logManager.err("Something happened while shutting down!");
@@ -312,27 +292,44 @@ public class OWOPServer extends WebSocketServer {
 	public TimingsManager getTimingsManager() {
 		return timingsManager;
 	}
-	
+
 	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {
 		/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
 		for (int i = 0; i < nameBytes.limit(); i++) {
-			byte b = nameBytes.get(i);
-			if (!((b > 96 && b < 123) ||
-					(b > 47 && b < 58) ||
-					b == 95 || b == 46)) {
+			final byte b = nameBytes.get(i);
+			if (!((b > 96 && b < 123) || (b > 47 && b < 58) || b == 95 || b == 46)) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	@Override
-	public void onStop() {
-		
+	public void sendUpdates() {
+		final TimingsRecord tr = TimingsRecord.start("sendUpdates");
+		worlds.forEach((key, world) -> world.sendUpdates());
+		timingsManager.add(tr);
+	}
+
+	public void checkAFK() {
+		final TimingsRecord tr = TimingsRecord.start("AFKCheck");
+		final long time = System.currentTimeMillis();
+		players.forEach((k, player) -> {
+			if (time - player.getLastMoveTime() > Player.AFKMIN * 60000) {
+				logManager.warn("Player " + player + " is inactive too long");
+				player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
+				player.kick();
+			}
+		});
+		timingsManager.add(tr);
 	}
 
 	@Override
-	public boolean onHttpRequest(SocketChannel sock, HttpRequest req) {
+	public void onStop() {
+
+	}
+
+	@Override
+	public boolean onHttpRequest(final SocketChannel sock, final HttpRequest req) {
 		return true;
 	}
 }

@@ -3,18 +3,19 @@ package me.andreww7985.owopserver.game;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 
+import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.server.OWOPServer;
+import me.nagalun.jwebsockets.PreparedMessage;
 
 public class World {
-	private final HashMap<Integer, Player> players = new HashMap<Integer, Player>();
-	private final HashMap<Long, Chunk> chunks = new HashMap<Long, Chunk>();
-	private final HashSet<Player> playerUpdates = new HashSet<Player>();
-	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
-	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
-	private byte[] updatesCache;
+	private final HashMap<Integer, Player> players = new HashMap<>();
+	private final HashMap<Long, Chunk> chunks = new HashMap<>();
+	private final HashSet<Player> playerUpdates = new HashSet<>();
+	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<>();
+	private final HashSet<Integer> playerDisconnects = new HashSet<>();
 	private final String name;
 	private final WorldReader wr;
 	private int playersId, online;
@@ -63,6 +64,7 @@ public class World {
 
 	public void playerJoined(final Player player) {
 		online++;
+		player.sendMessage(ChatHelper.LIME + "Joined world " + this + ". Your ID: " + player.getID());
 		players.put(player.getID(), player);
 	}
 
@@ -73,16 +75,9 @@ public class World {
 	}
 
 	public void sendUpdates() {
-		if (updatesCache != null) {
-			players.forEach((k, player) -> player.send(updatesCache));
-		}
-	}
-
-	public void updateCache() {
 		final int players = playerUpdates.size(), pixels = pixelUpdates.size(), disconnects = playerDisconnects.size();
 
 		if (players + pixels + disconnects < 1) {
-			updatesCache = null;
 			return;
 		}
 
@@ -114,11 +109,15 @@ public class World {
 			buffer.putInt(id);
 		});
 
-		updatesCache = buffer.array();
+		buffer.position(0);
+		buffer.limit(buffer.capacity());
+		final PreparedMessage data = OWOPServer.getInstance().prepareMessage(buffer);
 
 		playerUpdates.clear();
 		playerDisconnects.clear();
 		pixelUpdates.clear();
+
+		this.players.forEach((k, player) -> player.send(data));
 	}
 
 	public int getOnline() {
@@ -135,7 +134,6 @@ public class World {
 			if (chunk.shouldSave()) {
 				wr.saveChunk(chunk);
 			}
-
 		});
 	}
 
