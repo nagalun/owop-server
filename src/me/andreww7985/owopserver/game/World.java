@@ -4,15 +4,13 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.HashMap;
 
 import me.andreww7985.owopserver.server.OWOPServer;
 
 public class World {
-	private final ConcurrentHashMap<Integer, Player> players = new ConcurrentHashMap<Integer, Player>();
-	private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<Long, Chunk>();
-	private final ReentrantLock updatesLock = new ReentrantLock();
+	private final HashMap<Integer, Player> players = new HashMap<Integer, Player>();
+	private final HashMap<Long, Chunk> chunks = new HashMap<Long, Chunk>();
 	private final HashSet<Player> playerUpdates = new HashSet<Player>();
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<PixelUpdate>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<Integer>();
@@ -51,47 +49,27 @@ public class World {
 	}
 
 	public void putPixel(final int x, final int y, final short rgb565) {
-		updatesLock.lock();
-		try {
-			final Chunk chunk = getChunk(x >> 8, y >> 8);
-			if (chunk.getPixel((byte) x, (byte) y) == rgb565) {
-				return;
-			}
-			chunk.putPixel((byte) x, (byte) y, rgb565);
-			pixelUpdates.add(new PixelUpdate(x, y, rgb565));
-		} finally {
-			updatesLock.unlock();
+		final Chunk chunk = getChunk(x >> 8, y >> 8);
+		if (chunk.getPixel((byte) x, (byte) y) == rgb565) {
+			return;
 		}
+		chunk.putPixel((byte) x, (byte) y, rgb565);
+		pixelUpdates.add(new PixelUpdate(x, y, rgb565));
 	}
 
 	public void playerMoved(final Player player) {
-		updatesLock.lock();
-		try {
-			playerUpdates.add(player);
-		} finally {
-			updatesLock.unlock();
-		}
+		playerUpdates.add(player);
 	}
 
 	public void playerJoined(final Player player) {
-		updatesLock.lock();
-		try {
-			online++;
-			players.put(player.getID(), player);
-		} finally {
-			updatesLock.unlock();
-		}
+		online++;
+		players.put(player.getID(), player);
 	}
 
 	public void playerLeft(final Player player) {
-		updatesLock.lock();
-		try {
-			online--;
-			players.remove(player.getID());
-			playerDisconnects.add(player.getID());
-		} finally {
-			updatesLock.unlock();
-		}
+		online--;
+		players.remove(player.getID());
+		playerDisconnects.add(player.getID());
 	}
 
 	public void sendUpdates() {
@@ -101,52 +79,46 @@ public class World {
 	}
 
 	public void updateCache() {
-		updatesLock.lock();
-		try {
-			final int players = playerUpdates.size(), pixels = pixelUpdates.size(),
-					disconnects = playerDisconnects.size();
+		final int players = playerUpdates.size(), pixels = pixelUpdates.size(), disconnects = playerDisconnects.size();
 
-			if (players + pixels + disconnects < 1) {
-				updatesCache = null;
-				return;
-			}
-
-			final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 15 + pixels * 10 + disconnects * 4);
-			buffer.order(ByteOrder.LITTLE_ENDIAN);
-			buffer.put((byte) 1);
-
-			// TODO: Fix possible error with 255+ player updates
-			buffer.put((byte) players);
-			playerUpdates.forEach(p -> {
-				buffer.putInt(p.getID());
-				buffer.putInt(p.getX());
-				buffer.putInt(p.getY());
-				buffer.putShort(p.getRGB565());
-				buffer.put(p.getTool());
-			});
-
-			// TODO: Fix possible error with 65535+ pixel updates
-			buffer.putShort((short) pixels);
-			pixelUpdates.forEach(p -> {
-				buffer.putInt(p.x);
-				buffer.putInt(p.y);
-				buffer.putShort(p.rgb565);
-			});
-
-			// TODO: Fix possible error with 255+ player disconnects
-			buffer.put((byte) disconnects);
-			playerDisconnects.forEach(id -> {
-				buffer.putInt(id);
-			});
-
-			updatesCache = buffer.array();
-
-			playerUpdates.clear();
-			playerDisconnects.clear();
-			pixelUpdates.clear();
-		} finally {
-			updatesLock.unlock();
+		if (players + pixels + disconnects < 1) {
+			updatesCache = null;
+			return;
 		}
+
+		final ByteBuffer buffer = ByteBuffer.allocate(5 + players * 15 + pixels * 10 + disconnects * 4);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		buffer.put((byte) 1);
+
+		// TODO: Fix possible error with 255+ player updates
+		buffer.put((byte) players);
+		playerUpdates.forEach(p -> {
+			buffer.putInt(p.getID());
+			buffer.putInt(p.getX());
+			buffer.putInt(p.getY());
+			buffer.putShort(p.getRGB565());
+			buffer.put(p.getTool());
+		});
+
+		// TODO: Fix possible error with 65535+ pixel updates
+		buffer.putShort((short) pixels);
+		pixelUpdates.forEach(p -> {
+			buffer.putInt(p.x);
+			buffer.putInt(p.y);
+			buffer.putShort(p.rgb565);
+		});
+
+		// TODO: Fix possible error with 255+ player disconnects
+		buffer.put((byte) disconnects);
+		playerDisconnects.forEach(id -> {
+			buffer.putInt(id);
+		});
+
+		updatesCache = buffer.array();
+
+		playerUpdates.clear();
+		playerDisconnects.clear();
+		pixelUpdates.clear();
 	}
 
 	public int getOnline() {
@@ -168,20 +140,15 @@ public class World {
 	}
 
 	public void clearChunk(final int chunk16X, final int chunk16Y, final short rgb565) {
-		updatesLock.lock();
-		try {
-			final Chunk chunk = getChunk(chunk16X >> 4, chunk16Y >> 4);
-			for (int x = 0; x < 16; x++) {
-				for (int y = 0; y < 16; y++) {
-					final byte pixelX = (byte) ((chunk16X << 4) + x), pixelY = (byte) ((chunk16Y << 4) + y);
-					if (chunk.getPixel(pixelX, pixelY) != rgb565) {
-						pixelUpdates.add(new PixelUpdate((chunk16X << 4) + x, (chunk16Y << 4) + y, rgb565));
-					}
-					chunk.putPixel(pixelX, pixelY, rgb565);
+		final Chunk chunk = getChunk(chunk16X >> 4, chunk16Y >> 4);
+		for (int x = 0; x < 16; x++) {
+			for (int y = 0; y < 16; y++) {
+				final byte pixelX = (byte) ((chunk16X << 4) + x), pixelY = (byte) ((chunk16Y << 4) + y);
+				if (chunk.getPixel(pixelX, pixelY) != rgb565) {
+					pixelUpdates.add(new PixelUpdate((chunk16X << 4) + x, (chunk16Y << 4) + y, rgb565));
 				}
+				chunk.putPixel(pixelX, pixelY, rgb565);
 			}
-		} finally {
-			updatesLock.unlock();
 		}
 	}
 
