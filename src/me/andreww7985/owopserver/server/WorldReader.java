@@ -14,6 +14,7 @@ public class WorldReader {
 		final File chunkFile = new File(worldDir + File.separator + world.getName() + File.separator + "r."
 				+ chunk.getX() + "." + chunk.getY() + ".pxr");
 		try {
+			chunkFile.getParentFile().mkdirs();
 			Files.write(chunkFile.toPath(), CompressionHelper.compress(chunk.getByteArray()));
 		} catch (final Exception e) {
 			OWOPServer.getInstance().getLogManager().exception(e);
