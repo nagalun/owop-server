@@ -11,9 +11,9 @@ public class Chunk {
 		this.y = y;
 	}
 
-	public void putPixel(final byte x, final byte y, final short rgb565) {
-		pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] = (byte) rgb565;
-		pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] = (byte) (rgb565 >> 8);
+	public void putPixel(final byte x, final byte y, final short color) {
+		pixels[(((y & 0xFF) << 8) + (x & 0xFF)) << 1] = (byte) color;
+		pixels[((((y & 0xFF) << 8) + (x & 0xFF)) << 1) + 1] = (byte) (color >> 8);
 		changed = true;
 	}
 

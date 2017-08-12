@@ -1,23 +1,18 @@
-package me.andreww7985.owopserver.game;
+package me.andreww7985.owopserver.server;
 
 import java.io.File;
 import java.nio.file.Files;
 
+import me.andreww7985.owopserver.game.Chunk;
+import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.CompressionHelper;
-import me.andreww7985.owopserver.server.OWOPServer;
 
 public class WorldReader {
 	private final static String worldDir = "worldData";
-	private final String worldName;
 
-	public WorldReader(final String worldname) {
-		this.worldName = worldname;
-		(new File(worldDir + File.separator + worldname)).mkdirs();
-	}
-
-	public void saveChunk(final Chunk chunk) {
-		final File chunkFile = new File(worldDir + File.separator + worldName + File.separator + "r." + chunk.getX()
-				+ "." + chunk.getY() + ".pxr");
+	public void saveChunk(final World world, final Chunk chunk) {
+		final File chunkFile = new File(worldDir + File.separator + world.getName() + File.separator + "r."
+				+ chunk.getX() + "." + chunk.getY() + ".pxr");
 		try {
 			Files.write(chunkFile.toPath(), CompressionHelper.compress(chunk.getByteArray()));
 		} catch (final Exception e) {
@@ -25,9 +20,9 @@ public class WorldReader {
 		}
 	}
 
-	public Chunk readChunk(final int x, final int y) {
+	public Chunk readChunk(final World world, final int x, final int y) {
 		final File chunkFile = new File(
-				worldDir + File.separator + worldName + File.separator + "r." + x + "." + y + ".pxr");
+				worldDir + File.separator + world.getName() + File.separator + "r." + x + "." + y + ".pxr");
 		try {
 			return new Chunk(CompressionHelper.decompress(Files.readAllBytes(chunkFile.toPath())), x, y);
 		} catch (final Exception e) {

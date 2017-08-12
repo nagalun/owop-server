@@ -16,7 +16,7 @@ public class Player {
 	private final World world;
 	private final int id;
 	private int x, y;
-	private short rgb565;
+	private short color;
 	private byte tool;
 	private boolean admin;
 
@@ -43,13 +43,13 @@ public class Player {
 		send(buffer.array());
 	}
 
-	public void putPixel(final int x, final int y, final short rgb565) {
+	public void putPixel(final int x, final int y, final short color) {
 		if (!admin && !canPutPixel()) {
 			OWOPServer.getInstance().getLogManager().warn("Player " + this + " exceeded pixel limit");
 			kick();
 			return;
 		}
-		world.putPixel(x, y, rgb565);
+		world.putPixel(x, y, color);
 	}
 
 	public void chatMessage(final String text) {
@@ -61,11 +61,11 @@ public class Player {
 		world.broadcast(text);
 	}
 
-	public void update(final int x, final int y, final byte tool, final short rgb565) {
+	public void update(final int x, final int y, final byte tool, final short color) {
 		if (this.x != x || this.y != y) {
 			lastMoveTime = System.currentTimeMillis();
 		}
-		this.rgb565 = rgb565;
+		this.color = color;
 		this.tool = tool;
 		this.x = x;
 		this.y = y;
@@ -81,8 +81,8 @@ public class Player {
 		return y;
 	}
 
-	public short getRGB565() {
-		return rgb565;
+	public short getColor() {
+		return color;
 	}
 
 	public byte getTool() {
