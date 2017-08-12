@@ -21,9 +21,11 @@ import me.andreww7985.owopserver.command.TimingsCommand;
 import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.ChatHelper;
+import me.andreww7985.owopserver.network.states.VerificationState;
 import me.andreww7985.owopserver.timings.TimingsRecord;
 import me.nagalun.async.ITaskScheduler;
 import me.nagalun.jwebsockets.HttpRequest;
+import me.nagalun.jwebsockets.PreparedMessage;
 import me.nagalun.jwebsockets.WebSocket;
 import me.nagalun.jwebsockets.WebSocketServer;
 
@@ -41,6 +43,9 @@ public class OWOPServer extends WebSocketServer {
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
 	private final String adminPassword;
+	
+	/* Or closing */
+	private boolean isClosed = false;
 
 	public OWOPServer(final String adminPassword, final int port) throws Exception {
 		/* NOTE: Maximum message size set to 128 */
@@ -63,7 +68,22 @@ public class OWOPServer extends WebSocketServer {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
-				OWOPServer.getInstance().shutdown();
+				final Thread exitThread = Thread.currentThread();
+				final OWOPServer server = OWOPServer.getInstance();
+				final ITaskScheduler ts = server.getTaskScheduler();
+				if (ts.isRunning()) {
+					ts.idleCallback(() -> {
+						server.shutdown();
+						exitThread.interrupt();
+					});
+					
+					try {
+						Thread.sleep(15000);
+						/* Shutdown took too long */
+					} catch (final InterruptedException e) {
+						/* Exited normally */
+					}
+				}
 			}
 		});
 
@@ -213,19 +233,22 @@ public class OWOPServer extends WebSocketServer {
 	}
 
 	public void broadcast(final String text, final boolean adminOnly) {
-		if (adminOnly) {
-			players.forEach((k, player) -> {
-				if (player.isAdmin()) {
-					player.sendMessage(text);
-				}
-			});
-		} else {
-			players.forEach((k, player) -> player.sendMessage(text));
-		}
+		final PreparedMessage data = prepareMessage(text);
+		players.forEach((k, player) -> {
+			if (!adminOnly || player.isAdmin()) {
+				player.send(data);
+			}
+		});
+		data.finalizeMessage();
 	}
 
 	public void shutdown() {
+		if (isClosed) {
+			return;
+		}
+		
 		try {
+			isClosed = true;
 			logManager.info("Shutting down server...");
 			broadcast(ChatHelper.RED + "Shutting down server...", false);
 			for (final World world : worlds.values()) {
@@ -239,7 +262,6 @@ public class OWOPServer extends WebSocketServer {
 			logManager.err("Something happened while shutting down!");
 			logManager.exception(e);
 		}
-
 	}
 
 	public World getWorld(final String worldName) {
@@ -330,6 +352,6 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public boolean onHttpRequest(final SocketChannel sock, final HttpRequest req) {
-		return true;
+		return VerificationState.verifyHeaders(req);
 	}
 }

@@ -152,8 +152,12 @@ public class World {
 	}
 
 	public void broadcast(final String text) {
-		OWOPServer.getInstance().getLogManager().chat(this + " " + text);
-		players.forEach((k, player) -> player.sendMessage(text));
+		final OWOPServer server = OWOPServer.getInstance();
+		server.getLogManager().chat(this + " " + text);
+		
+		final PreparedMessage data = server.prepareMessage(text);
+		players.forEach((k, player) -> player.send(data));
+		data.finalizeMessage();
 	}
 
 	public Player getPlayer(final int id) {
