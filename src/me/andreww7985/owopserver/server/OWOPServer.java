@@ -42,6 +42,7 @@ public class OWOPServer extends WebSocketServer {
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
+	private final WorldReader worldReader;
 	private final String adminPassword;
 	
 	/* Or closing */
@@ -53,6 +54,7 @@ public class OWOPServer extends WebSocketServer {
 		commandManager = new CommandManager();
 		timingsManager = new TimingsManager();
 		logManager = new LogManager();
+		worldReader = new WorldReader();
 		this.adminPassword = adminPassword;
 		OWOPServer.instance = this;
 
@@ -135,23 +137,13 @@ public class OWOPServer extends WebSocketServer {
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
 		if (player == null) {
-			final int size = message.capacity();
-			boolean verified = true;
-
-			if (size < 3 || size - 2 > 24 || message.getShort(size - 2) != 1337) {
-				verified = false;
-			}
-
-			message.limit(size - 2);
-
-			if (!(verified && isWorldNameValid(message))) {
+			if (!isWorldNameValid(message)) {
 				logManager.warn("Join verification failed for socket from " + addr);
 				ws.close();
 				return;
 			}
 
 			final String worldName = StandardCharsets.US_ASCII.decode(message).toString();
-
 			final World world = getWorld(worldName);
 
 			player = new Player(world.getNextID(), world, ws);
@@ -315,8 +307,19 @@ public class OWOPServer extends WebSocketServer {
 		return timingsManager;
 	}
 
+	public WorldReader getWorldReader() {
+		return worldReader;
+	}
+
 	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {
 		/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
+		final int size = nameBytes.capacity();
+
+		if (size < 3 || size - 2 > 24 || nameBytes.getShort(size - 2) != 1337) {
+			return false;
+		}
+
+		nameBytes.limit(size - 2);
 		for (int i = 0; i < nameBytes.limit(); i++) {
 			final byte b = nameBytes.get(i);
 			if (!((b > 96 && b < 123) || (b > 47 && b < 58) || b == 95 || b == 46)) {
@@ -336,7 +339,7 @@ public class OWOPServer extends WebSocketServer {
 		final TimingsRecord tr = TimingsRecord.start("AFKCheck");
 		final long time = System.currentTimeMillis();
 		players.forEach((k, player) -> {
-			if (time - player.getLastMoveTime() > Player.AFKMIN * 60000) {
+			if (time - player.getLastMoveTime() > Player.AFKMIN * 60000 && !player.isAdmin()) {
 				logManager.warn("Player " + player + " is inactive too long");
 				player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
 				player.kick();

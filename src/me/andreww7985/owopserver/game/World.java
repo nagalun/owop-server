@@ -17,12 +17,10 @@ public class World {
 	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<>();
 	private final HashSet<Integer> playerDisconnects = new HashSet<>();
 	private final String name;
-	private final WorldReader wr;
 	private int playersId, online;
 
 	public World(final String name) {
 		this.name = name;
-		this.wr = new WorldReader(name);
 	}
 
 	private static long getChunkKey(final int x, final int y) {
@@ -43,19 +41,19 @@ public class World {
 	}
 
 	private Chunk loadChunk(final int x, final int y) {
-		final Chunk chunk = wr.readChunk(x, y);
+		final Chunk chunk = OWOPServer.getInstance().getWorldReader().readChunk(this, x, y);
 		chunks.put(World.getChunkKey(x, y), chunk);
 		OWOPServer.getInstance().chunksLoaded(1);
 		return chunk;
 	}
 
-	public void putPixel(final int x, final int y, final short rgb565) {
+	public void putPixel(final int x, final int y, final short color) {
 		final Chunk chunk = getChunk(x >> 8, y >> 8);
-		if (chunk.getPixel((byte) x, (byte) y) == rgb565) {
+		if (chunk.getPixel((byte) x, (byte) y) == color) {
 			return;
 		}
-		chunk.putPixel((byte) x, (byte) y, rgb565);
-		pixelUpdates.add(new PixelUpdate(x, y, rgb565));
+		chunk.putPixel((byte) x, (byte) y, color);
+		pixelUpdates.add(new PixelUpdate(x, y, color));
 	}
 
 	public void playerMoved(final Player player) {
@@ -91,7 +89,7 @@ public class World {
 			buffer.putInt(p.getID());
 			buffer.putInt(p.getX());
 			buffer.putInt(p.getY());
-			buffer.putShort(p.getRGB565());
+			buffer.putShort(p.getColor());
 			buffer.put(p.getTool());
 		});
 
@@ -100,7 +98,7 @@ public class World {
 		pixelUpdates.forEach(p -> {
 			buffer.putInt(p.x);
 			buffer.putInt(p.y);
-			buffer.putShort(p.rgb565);
+			buffer.putShort(p.color);
 		});
 
 		// TODO: Fix possible error with 255+ player disconnects
@@ -133,20 +131,20 @@ public class World {
 		OWOPServer.getInstance().chunksUnloaded(chunks.values().size());
 		chunks.forEach((key, chunk) -> {
 			if (chunk.shouldSave()) {
-				wr.saveChunk(chunk);
+				OWOPServer.getInstance().getWorldReader().saveChunk(this, chunk);
 			}
 		});
 	}
 
-	public void clearChunk(final int chunk16X, final int chunk16Y, final short rgb565) {
+	public void clearChunk(final int chunk16X, final int chunk16Y, final short color) {
 		final Chunk chunk = getChunk(chunk16X >> 4, chunk16Y >> 4);
 		for (int x = 0; x < 16; x++) {
 			for (int y = 0; y < 16; y++) {
 				final byte pixelX = (byte) ((chunk16X << 4) + x), pixelY = (byte) ((chunk16Y << 4) + y);
-				if (chunk.getPixel(pixelX, pixelY) != rgb565) {
-					pixelUpdates.add(new PixelUpdate((chunk16X << 4) + x, (chunk16Y << 4) + y, rgb565));
+				if (chunk.getPixel(pixelX, pixelY) != color) {
+					pixelUpdates.add(new PixelUpdate((chunk16X << 4) + x, (chunk16Y << 4) + y, color));
 				}
-				chunk.putPixel(pixelX, pixelY, rgb565);
+				chunk.putPixel(pixelX, pixelY, color);
 			}
 		}
 	}
