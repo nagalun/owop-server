@@ -33,8 +33,8 @@ public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
 	/*
-	 * Needs to be ConcurrentHashMap because removing items while iterating is
-	 * not allowed (AFK Timer)
+	 * Needs to be ConcurrentHashMap because removing items while iterating is not
+	 * allowed (AFK Timer)
 	 */
 	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
 	private final HashMap<String, World> worlds = new HashMap<>();
@@ -44,7 +44,7 @@ public class OWOPServer extends WebSocketServer {
 	private final LogManager logManager;
 	private final WorldReader worldReader;
 	private final String adminPassword;
-	
+
 	/* Or closing */
 	private boolean isClosed = false;
 
@@ -73,12 +73,16 @@ public class OWOPServer extends WebSocketServer {
 				final Thread exitThread = Thread.currentThread();
 				final OWOPServer server = OWOPServer.getInstance();
 				final ITaskScheduler ts = server.getTaskScheduler();
+				/*
+				 * If the task scheduler isn't running then it means something else called
+				 * server.shutdown(), like the /shutdown command.
+				 **/
 				if (ts.isRunning()) {
 					ts.idleCallback(() -> {
 						server.shutdown();
 						exitThread.interrupt();
 					});
-					
+
 					try {
 						Thread.sleep(15000);
 						/* Shutdown took too long */
@@ -238,7 +242,7 @@ public class OWOPServer extends WebSocketServer {
 		if (isClosed) {
 			return;
 		}
-		
+
 		try {
 			isClosed = true;
 			logManager.info("Shutting down server...");
