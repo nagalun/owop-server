@@ -14,8 +14,8 @@ public class World {
 	private final HashMap<Integer, Player> players = new HashMap<>();
 	private final HashMap<Long, Chunk> chunks = new HashMap<>();
 	private final HashSet<Player> playerUpdates = new HashSet<>();
-	private final ArrayList<PixelUpdate> pixelUpdates = new ArrayList<>();
-	private final HashSet<Integer> playerDisconnects = new HashSet<>();
+	private final HashSet<PixelUpdate> pixelUpdates = new HashSet<>();
+	private final ArrayList<Integer> playerDisconnects = new ArrayList<>();
 	private final String name;
 	private int playersId, online;
 
@@ -115,7 +115,7 @@ public class World {
 		pixelUpdates.clear();
 
 		this.players.forEach((k, player) -> player.send(data));
-		
+
 		data.finalizeMessage();
 	}
 
