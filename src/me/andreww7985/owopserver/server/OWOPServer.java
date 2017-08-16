@@ -42,11 +42,9 @@ public class OWOPServer extends WebSocketServer {
 	private final CommandManager commandManager;
 	private final TimingsManager timingsManager;
 	private final LogManager logManager;
-	private final WorldReader worldReader;
 	private final String adminPassword;
 
-	/* Or closing */
-	private boolean isClosed = false;
+	private boolean isClosed = false; /* ...or closing */
 
 	public OWOPServer(final String adminPassword, final int port) throws Exception {
 		/* NOTE: Maximum message size set to 128 */
@@ -54,7 +52,7 @@ public class OWOPServer extends WebSocketServer {
 		commandManager = new CommandManager();
 		timingsManager = new TimingsManager();
 		logManager = new LogManager();
-		worldReader = new WorldReader();
+		
 		this.adminPassword = adminPassword;
 		OWOPServer.instance = this;
 
@@ -309,10 +307,6 @@ public class OWOPServer extends WebSocketServer {
 
 	public TimingsManager getTimingsManager() {
 		return timingsManager;
-	}
-
-	public WorldReader getWorldReader() {
-		return worldReader;
 	}
 
 	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {

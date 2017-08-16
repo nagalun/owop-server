@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import me.andreww7985.owopserver.network.NetworkState;
-import me.andreww7985.owopserver.network.SocketVerifier;
 import me.andreww7985.owopserver.network.StateId;
 import me.nagalun.jwebsockets.HttpRequest;
 import me.nagalun.jwebsockets.WebSocket;
@@ -29,7 +28,7 @@ public class VerificationState extends NetworkState {
 	private static boolean requireCaptcha = false;
 	private static boolean waitingForCaptcha = false;
 	
-	protected VerificationState(final WebSocket socket, final SocketVerifier sv) {
+	protected VerificationState(final WebSocket socket) {
 		super(socket, StateId.VERIFICATION);
 		socket.send(new byte[] {SOP_PROTOCOL_VERSION, PROTOCOL_VERSION});
 	}

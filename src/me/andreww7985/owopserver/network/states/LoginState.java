@@ -3,6 +3,7 @@ package me.andreww7985.owopserver.network.states;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import me.andreww7985.owopserver.network.LoginInfo;
 import me.andreww7985.owopserver.network.NetworkState;
 import me.andreww7985.owopserver.network.StateId;
 import me.nagalun.jwebsockets.WebSocket;
@@ -21,8 +22,8 @@ public class LoginState extends NetworkState {
 		super(socket, StateId.LOGIN);
 	}
 
-	protected void upgrade() {
-		socket.userData = new LobbyState(socket);
+	protected void upgrade(final LoginInfo info) {
+		socket.userData = new LobbyState(socket, info);
 	}
 
 
