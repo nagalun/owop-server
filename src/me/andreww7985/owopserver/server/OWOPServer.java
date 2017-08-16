@@ -17,12 +17,11 @@ import me.andreww7985.owopserver.command.InfoCommand;
 import me.andreww7985.owopserver.command.KickCommand;
 import me.andreww7985.owopserver.command.ShutdownCommand;
 import me.andreww7985.owopserver.command.TeleportCommand;
-import me.andreww7985.owopserver.command.TimingsCommand;
 import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.ChatHelper;
 import me.andreww7985.owopserver.network.states.VerificationState;
-import me.andreww7985.owopserver.timings.TimingsRecord;
+
 import me.nagalun.async.ITaskScheduler;
 import me.nagalun.jwebsockets.HttpRequest;
 import me.nagalun.jwebsockets.PreparedMessage;
@@ -32,15 +31,10 @@ import me.nagalun.jwebsockets.WebSocketServer;
 public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
 	private int totalChunksLoaded, totalOnline;
-	/*
-	 * Needs to be ConcurrentHashMap because removing items while iterating is not
-	 * allowed (AFK Timer)
-	 */
 	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
 	private final HashMap<String, World> worlds = new HashMap<>();
 	private int updatesTimerID, AFKTimerID;
 	private final CommandManager commandManager;
-	private final TimingsManager timingsManager;
 	private final LogManager logManager;
 	private final String adminPassword;
 
@@ -50,7 +44,6 @@ public class OWOPServer extends WebSocketServer {
 		/* NOTE: Maximum message size set to 128 */
 		super(port, Arrays.asList(StandardSocketOptions.TCP_NODELAY, StandardSocketOptions.SO_REUSEADDR), 128);
 		commandManager = new CommandManager();
-		timingsManager = new TimingsManager();
 		logManager = new LogManager();
 		
 		this.adminPassword = adminPassword;
@@ -62,7 +55,6 @@ public class OWOPServer extends WebSocketServer {
 		commandManager.registerCommand(new InfoCommand());
 		commandManager.registerCommand(new ACommand());
 		commandManager.registerCommand(new KickCommand());
-		commandManager.registerCommand(new TimingsCommand());
 		commandManager.registerCommand(new ShutdownCommand());
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -134,7 +126,6 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
-		final TimingsRecord tr = TimingsRecord.start("onPacket");
 		final SocketAddress addr = ws.getRemoteSocketAddress();
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
@@ -188,7 +179,6 @@ public class OWOPServer extends WebSocketServer {
 				break;
 			}
 		}
-		timingsManager.add(tr);
 	}
 
 	@Override
@@ -201,7 +191,6 @@ public class OWOPServer extends WebSocketServer {
 
 	@Override
 	public void onMessage(final WebSocket ws, String message) {
-		final TimingsRecord tr = TimingsRecord.start("onChat");
 		final Player player = players.get(ws.getRemoteSocketAddress());
 		/* length + 1 for verification byte */
 		if (!message.isEmpty() && player != null && message.length() <= 80 + 1 && message.length() > 1
@@ -223,7 +212,6 @@ public class OWOPServer extends WebSocketServer {
 				}
 			}
 		}
-		timingsManager.add(tr);
 	}
 
 	public void broadcast(final String text, final boolean adminOnly) {
@@ -305,10 +293,6 @@ public class OWOPServer extends WebSocketServer {
 		return totalOnline;
 	}
 
-	public TimingsManager getTimingsManager() {
-		return timingsManager;
-	}
-
 	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {
 		/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
 		final int size = nameBytes.capacity();
@@ -328,22 +312,20 @@ public class OWOPServer extends WebSocketServer {
 	}
 
 	public void sendUpdates() {
-		final TimingsRecord tr = TimingsRecord.start("sendUpdates");
-		worlds.forEach((key, world) -> world.sendUpdates());
-		timingsManager.add(tr);
+		for (final World world : worlds.values()) {
+			world.sendUpdates();
+		}
 	}
 
 	public void checkAFK() {
-		final TimingsRecord tr = TimingsRecord.start("AFKCheck");
 		final long time = System.currentTimeMillis();
-		players.forEach((k, player) -> {
+		for (final Player player : players.values()) {
 			if (time - player.getLastMoveTime() > Player.AFKMIN * 60000 && !player.isAdmin()) {
 				logManager.warn("Player " + player + " is inactive too long");
 				player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
 				player.kick();
 			}
-		});
-		timingsManager.add(tr);
+		}
 	}
 
 	@Override

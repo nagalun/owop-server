@@ -42,6 +42,14 @@ public abstract class Packet {
 		data.put(value);
 	}
 
+	protected void putShort(final short value) {
+		data.putShort(value);
+	}
+
+	protected short getShort() {
+		return data.getShort();
+	}
+
 	protected int getInt() {
 		return data.getInt();
 	}

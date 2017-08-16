@@ -2,12 +2,8 @@ package me.andreww7985.owopserver.helper;
 
 import java.util.ArrayList;
 
-import me.andreww7985.owopserver.server.OWOPServer;
-import me.andreww7985.owopserver.timings.TimingsRecord;
-
 public class CompressionHelper {
 	public static byte[] compress(final byte[] original) {
-		final TimingsRecord tr = TimingsRecord.start("chunkCompress");
 		int compressedSize = 0;
 		final ArrayList<Integer> repeatlocations = new ArrayList<Integer>();
 		final ArrayList<Integer> repeattimes = new ArrayList<Integer>();
@@ -72,12 +68,11 @@ public class CompressionHelper {
 		while (optr < original.length) {
 			u8compressed[dptr++] = original[optr++];
 		}
-		OWOPServer.getInstance().getTimingsManager().add(tr);
+
 		return u8compressed;
 	}
 
 	public static byte[] decompress(final byte[] input) {
-		final TimingsRecord tr = TimingsRecord.start("chunkDecompress");
 		final int originalLength = (((input[1] & 0xFF) << 8 | (input[0] & 0xFF)) + 1) * 2;
 		final byte[] output = new byte[originalLength];
 		final int numOfRepeats = (input[3] & 0xFF) << 8 | (input[2] & 0xFF);
@@ -102,7 +97,7 @@ public class CompressionHelper {
 		while (cptr < input.length) {
 			output[uptr++] = input[cptr++];
 		}
-		OWOPServer.getInstance().getTimingsManager().add(tr);
+
 		return output;
 	}
 }
