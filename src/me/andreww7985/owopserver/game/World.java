@@ -7,10 +7,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import me.andreww7985.owopserver.helper.ChatHelper;
+import me.andreww7985.owopserver.server.LogManager;
 import me.andreww7985.owopserver.server.OWOPServer;
+import me.andreww7985.owopserver.server.WorldReader;
 import me.nagalun.jwebsockets.PreparedMessage;
 
 public class World {
+	private final LogManager log = LogManager.getInstance();
+	private final WorldReader wr;
 	private final HashMap<Integer, Player> players = new HashMap<>();
 	private final HashMap<Long, Chunk> chunks = new HashMap<>();
 	private final HashSet<Player> playerUpdates = new HashSet<>();
@@ -19,8 +23,9 @@ public class World {
 	private final String name;
 	private int playersId, online;
 
-	public World(final String name) {
+	public World(final String name, final WorldReader wr) {
 		this.name = name;
+		this.wr = wr;
 	}
 
 	private static long getChunkKey(final int x, final int y) {
@@ -41,7 +46,7 @@ public class World {
 	}
 
 	private Chunk loadChunk(final int x, final int y) {
-		final Chunk chunk = OWOPServer.getInstance().getWorldReader().readChunk(this, x, y);
+		final Chunk chunk = wr.readChunk(this, x, y);
 		chunks.put(World.getChunkKey(x, y), chunk);
 		OWOPServer.getInstance().chunksLoaded(1);
 		return chunk;
@@ -131,7 +136,7 @@ public class World {
 		OWOPServer.getInstance().chunksUnloaded(chunks.values().size());
 		chunks.forEach((key, chunk) -> {
 			if (chunk.shouldSave()) {
-				OWOPServer.getInstance().getWorldReader().saveChunk(this, chunk);
+				wr.saveChunk(this, chunk);
 			}
 		});
 	}
@@ -150,8 +155,8 @@ public class World {
 	}
 
 	public void broadcast(final String text) {
-		final OWOPServer server = OWOPServer.getInstance();
-		server.getLogManager().chat(this + " " + text);
+		final OWOPServer server = OWOPServer.getInstance(); /* TODO: get rid of this */
+		log.chat(this + " " + text);
 		
 		final PreparedMessage data = server.prepareMessage(text);
 		players.forEach((k, player) -> player.send(data));

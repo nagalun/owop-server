@@ -9,6 +9,7 @@ import me.andreww7985.owopserver.game.Player;
 import me.andreww7985.owopserver.helper.ChatHelper;
 
 public class CommandManager {
+	private final LogManager log = LogManager.getInstance();
 	private final HashMap<String, CommandExecutor> executors = new HashMap<String, CommandExecutor>();
 	private final HashMap<String, Command> commands = new HashMap<String, Command>();
 
@@ -29,7 +30,7 @@ public class CommandManager {
 
 	public void registerCommand(final Command command) {
 		if (executors.containsKey(command.getName()) || commands.containsKey(command.getName())) {
-			OWOPServer.getInstance().getLogManager().err("Command already registered : " + command.getName());
+			log.err("Command already registered : " + command.getName());
 		} else {
 			commands.put(command.getName(), command);
 			executors.put(command.getName(), command);

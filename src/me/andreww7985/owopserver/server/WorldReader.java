@@ -8,6 +8,7 @@ import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.CompressionHelper;
 
 public class WorldReader {
+	private final LogManager log = LogManager.getInstance();
 	private final static String worldDir = "worldData";
 
 	public void saveChunk(final World world, final Chunk chunk) {
@@ -17,7 +18,7 @@ public class WorldReader {
 			chunkFile.getParentFile().mkdirs();
 			Files.write(chunkFile.toPath(), CompressionHelper.compress(chunk.getByteArray()));
 		} catch (final Exception e) {
-			OWOPServer.getInstance().getLogManager().exception(e);
+			log.exception(e);
 		}
 	}
 

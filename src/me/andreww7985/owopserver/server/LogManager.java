@@ -1,6 +1,7 @@
 package me.andreww7985.owopserver.server;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -8,11 +9,12 @@ import java.time.format.DateTimeFormatter;
 import me.andreww7985.owopserver.helper.ChatHelper;
 
 public final class LogManager {
+	private static LogManager instance = null;
 	private final File logFile = new File("logs" + File.separator
 			+ LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy-M-dd_HH-mm")) + ".txt");
 	private final PrintWriter logPrinter;
 
-	public LogManager() throws Exception {
+	private LogManager() throws FileNotFoundException  {
 		logFile.getParentFile().mkdirs();
 		logPrinter = new PrintWriter(logFile);
 	}
@@ -55,5 +57,16 @@ public final class LogManager {
 	public void command(final String str) {
 		print("[" + getTimestamp() + " CMND] " + str);
 		OWOPServer.getInstance().broadcast(ChatHelper.DEV_CONSOLE + ChatHelper.BLUE + "[COMMAND] " + str, true);
+	}
+	
+	public static LogManager getInstance() {
+		if (instance == null) {
+			try {
+				instance = new LogManager();
+			} catch (FileNotFoundException e) {
+				throw new RuntimeException("Couldn't initialize LogManager!", e);
+			}
+		}
+		return instance;
 	}
 }

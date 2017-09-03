@@ -1,10 +1,18 @@
 package me.andreww7985.owopserver.network.states;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import me.andreww7985.owopserver.helper.HttpRequestHelper;
+import me.andreww7985.owopserver.helper.HttpRequestHelper.RequestCallback;
 import me.andreww7985.owopserver.network.NetworkState;
 import me.andreww7985.owopserver.network.StateId;
+import me.andreww7985.owopserver.server.OWOPServer;
+import me.nagalun.async.ITaskScheduler;
 import me.nagalun.jwebsockets.HttpRequest;
 import me.nagalun.jwebsockets.WebSocket;
 
@@ -20,17 +28,27 @@ public class VerificationState extends NetworkState {
 	private final static byte COP_CAPTCHA_TOKEN = 0x02;
 	
 	/* Server opcodes */
-	private final static byte SOP_PROTOCOL_VERSION = 0x01; /* int */
+	private final static byte SOP_PROTOCOL_VERSION = 0x01;
 	private final static byte SOP_CAPTCHA_STATUS = 0x02;
 	
-	private final static String ORIGIN_URL = "ourworldofpixels.com"; 
-	private static boolean verifyOrigin = false;
-	private static boolean requireCaptcha = false;
-	private static boolean waitingForCaptcha = false;
+	private final static String ORIGIN_URL = OWOPServer.getProperty("origin-url");
+	private final static String CAPTCHA_API_URL = "https://www.google.com/recaptcha/api/siteverify";
+	private final static String CAPTCHA_API_SECRET = OWOPServer.getProperty("captcha-secret");
+	private static boolean verifyOrigin = OWOPServer.getBoolProperty("verify-origin");
+	private static boolean requireCaptcha = OWOPServer.getBoolProperty("captcha-enable") && CAPTCHA_API_SECRET != null;
+	private byte captchaStatus = CAS_CAPTCHA_INVALID;
 	
-	protected VerificationState(final WebSocket socket) {
+	public VerificationState(final WebSocket socket) {
 		super(socket, StateId.VERIFICATION);
-		socket.send(new byte[] {SOP_PROTOCOL_VERSION, PROTOCOL_VERSION});
+		sendProtocolVersion();
+	}
+	
+	private void sendCaptchaState(final byte s) {
+		socket.send(new byte[] { SOP_CAPTCHA_STATUS, s });
+	}
+	
+	private void sendProtocolVersion() {
+		socket.send(new byte[] { SOP_PROTOCOL_VERSION, PROTOCOL_VERSION });
 	}
 	
 	public void upgrade() {
@@ -75,12 +93,12 @@ public class VerificationState extends NetworkState {
 	}
 	
 	private void clientProtocolVersion(final ByteBuffer msg) {
-		if (msg.remaining() != 4) {
+		if (msg.remaining() != 1 || captchaStatus != CAS_CAPTCHA_INVALID) {
 			socket.close();
 			return;
 		}
 		
-		final int clientVersion = msg.getInt();
+		final int clientVersion = msg.get() & 0xFF;
 		
 		if (clientVersion != PROTOCOL_VERSION) {
 			socket.close();
@@ -88,19 +106,59 @@ public class VerificationState extends NetworkState {
 		}
 		
 		if (requireCaptcha) {
-			socket.send(new byte[] {SOP_CAPTCHA_STATUS, CAS_CAPTCHA_WAITING});
+			captchaStatus = CAS_CAPTCHA_WAITING;
+			sendCaptchaState(CAS_CAPTCHA_WAITING);
 		} else {
 			upgrade();
 		}
 	}
 	
 	private void clientCaptchaToken(final ByteBuffer msg) {
-		if (!waitingForCaptcha || msg.remaining() == 0 || msg.remaining() > 512) {
+		if (captchaStatus != CAS_CAPTCHA_WAITING || msg.remaining() == 0 || msg.remaining() > 512) {
 			socket.close();
 			return;
 		}
 		
 		final String token = StandardCharsets.UTF_8.decode(msg).toString();
-		/* Do something ... */
+		captchaStatus = CAS_CAPTCHA_VERIFYING;
+		verifyCaptchaToken(token);
+	}
+	
+	private void verifyCaptchaToken(final String token) {
+		sendCaptchaState(CAS_CAPTCHA_VERIFYING);
+		final ITaskScheduler ts = server.getTaskScheduler();
+		try {
+			HttpRequestHelper.doRequest(CAPTCHA_API_URL, String.format("secret=%s&response=%s", 
+					URLEncoder.encode(CAPTCHA_API_SECRET, StandardCharsets.UTF_8.name()),
+					URLEncoder.encode(token, StandardCharsets.UTF_8.name())),
+					new RequestCallback() { /* keep in mind that these methods are executed from another thread */
+						@Override
+						public void done(final String data, final HttpURLConnection conn) {
+							try {
+								System.out.println(conn.getResponseCode() + ", " + data);
+								ts.idleCallback(() -> {
+									sendCaptchaState(CAS_CAPTCHA_VERIFIED);
+									upgrade();
+								});
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
+
+						@Override
+						public void error(final Exception e) {
+							ts.idleCallback(() -> {
+								sendCaptchaState(CAS_CAPTCHA_INVALID);
+								socket.close();
+							});
+							e.printStackTrace();
+						}	
+					}
+			);
+		} catch (final UnsupportedEncodingException e) {
+			sendCaptchaState(CAS_CAPTCHA_INVALID);
+			socket.close();
+			e.printStackTrace();
+		}
 	}
 }

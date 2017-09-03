@@ -4,15 +4,18 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import me.andreww7985.owopserver.helper.CompressionHelper;
-import me.andreww7985.owopserver.server.OWOPServer;
+import me.andreww7985.owopserver.network.LoginInfo;
+import me.andreww7985.owopserver.server.LogManager;
 import me.nagalun.jwebsockets.PreparedMessage;
 import me.nagalun.jwebsockets.WebSocket;
 
 public class Player {
+	private final LogManager log = LogManager.getInstance();
 	public static final int PRATE = 99999999, PTIME = 4, CRATE = 4, CTIME = 6, AFKMIN = 5;
 	private long plastCheck = System.currentTimeMillis(), clastCheck = plastCheck, lastMoveTime = plastCheck;
 	private float pallowance = PRATE, callowance = CRATE;
 	private final WebSocket webSocket;
+	private final LoginInfo loginInfo;
 	private final World world;
 	private final int id;
 	private int x, y;
@@ -20,10 +23,11 @@ public class Player {
 	private byte tool;
 	private boolean admin;
 
-	public Player(final int id, final World world, final WebSocket webSocket) {
+	public Player(final int id, final World world, final LoginInfo loginInfo, final WebSocket webSocket) {
 		this.id = id;
 		this.world = world;
 		this.webSocket = webSocket;
+		this.loginInfo = loginInfo;
 		final ByteBuffer buffer = ByteBuffer.allocate(9);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		buffer.put((byte) 0);
@@ -45,7 +49,7 @@ public class Player {
 
 	public void putPixel(final int x, final int y, final short color) {
 		if (!admin && !canPutPixel()) {
-			OWOPServer.getInstance().getLogManager().warn("Player " + this + " exceeded pixel limit");
+			log.warn("Player " + this + " exceeded pixel limit");
 			kick();
 			return;
 		}
@@ -54,7 +58,7 @@ public class Player {
 
 	public void chatMessage(final String text) {
 		if (!admin && !canChat()) {
-			OWOPServer.getInstance().getLogManager().warn("Player " + this + " exceeded chat limit");
+			log.warn("Player " + this + " exceeded chat limit");
 			kick();
 			return;
 		}
@@ -91,6 +95,10 @@ public class Player {
 
 	public World getWorld() {
 		return world;
+	}
+	
+	public LoginInfo getLoginInfo() {
+		return loginInfo;
 	}
 
 	public int getID() {
@@ -145,7 +153,7 @@ public class Player {
 	}
 
 	public void kick() {
-		OWOPServer.getInstance().getLogManager().warn("Kicked player " + this);
+		log.warn("Kicked player " + this);
 		webSocket.close();
 	}
 

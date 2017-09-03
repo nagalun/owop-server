@@ -1,14 +1,13 @@
 package me.andreww7985.owopserver.server;
 
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashSet;
 
 import me.andreww7985.owopserver.command.ACommand;
 import me.andreww7985.owopserver.command.AdminCommand;
@@ -17,9 +16,10 @@ import me.andreww7985.owopserver.command.InfoCommand;
 import me.andreww7985.owopserver.command.KickCommand;
 import me.andreww7985.owopserver.command.ShutdownCommand;
 import me.andreww7985.owopserver.command.TeleportCommand;
-import me.andreww7985.owopserver.game.Player;
-import me.andreww7985.owopserver.game.World;
 import me.andreww7985.owopserver.helper.ChatHelper;
+import me.andreww7985.owopserver.helper.ConfigHelper;
+import me.andreww7985.owopserver.network.LoginInfo.Rank;
+import me.andreww7985.owopserver.network.NetworkState;
 import me.andreww7985.owopserver.network.states.VerificationState;
 
 import me.nagalun.async.ITaskScheduler;
@@ -30,24 +30,51 @@ import me.nagalun.jwebsockets.WebSocketServer;
 
 public class OWOPServer extends WebSocketServer {
 	private static OWOPServer instance;
+	private static final LogManager log = LogManager.getInstance();
+	private static final ConfigHelper conf;
+	private static final int port;
+	
 	private int totalChunksLoaded, totalOnline;
-	private final ConcurrentHashMap<SocketAddress, Player> players = new ConcurrentHashMap<>();
-	private final HashMap<String, World> worlds = new HashMap<>();
-	private int updatesTimerID, AFKTimerID;
-	private final CommandManager commandManager;
-	private final LogManager logManager;
+	private final HashSet<WebSocket> connections = new HashSet<>();
+	private final CommandManager commandManager = new CommandManager();
+	private final WorldManager worldManager = new WorldManager();
 	private final String adminPassword;
+	private String MOTD = "Pixel perfect!";
+	private int AFKTimerID;
 
 	private boolean isClosed = false; /* ...or closing */
+	
+	static {
+		try {
+			conf = new ConfigHelper("server.conf", true, "OWOP Server configuration file");
+			conf.setDefaultProperty("server-port", Integer.toString(1234));
+			conf.setDefaultProperty("captcha-secret", "dummy-secret-token");
+			conf.setDefaultProperty("captcha-enable", "false");
+			conf.setDefaultProperty("verify-origin", "false");
+			conf.setDefaultProperty("origin-url", "ourworldofpixels.com");
+			if (!conf.getProperties().containsKey("admin-password")) {
+				final String weakPassword = Long.toHexString((new SecureRandom()).nextLong());
+				conf.setDefaultProperty("admin-password", weakPassword);
+				System.out.println("WARNING: Generated a weak admin password, you should change it ASAP.");
+			}
+			conf.writeProps();
+		} catch (final IOException e) {
+			throw new RuntimeException(e);
+		}
+		port = Integer.parseInt(getProperty("server-port"));
+	}
 
-	public OWOPServer(final String adminPassword, final int port) throws Exception {
-		/* NOTE: Maximum message size set to 128 */
+	public OWOPServer() throws IOException {
+		/*
+		 * NOTE: Maximum message size set to 128 (should be changed for the captcha
+		 * token...)
+		 */
 		super(port, Arrays.asList(StandardSocketOptions.TCP_NODELAY, StandardSocketOptions.SO_REUSEADDR), 128);
-		commandManager = new CommandManager();
-		logManager = new LogManager();
 		
-		this.adminPassword = adminPassword;
+		NetworkState.init(this);
+
 		OWOPServer.instance = this;
+		adminPassword = getProperty("admin-password");
 
 		commandManager.registerCommand(new HelpCommand());
 		commandManager.registerCommand(new TeleportCommand());
@@ -83,68 +110,74 @@ public class OWOPServer extends WebSocketServer {
 			}
 		});
 
-		logManager.info("Admin password is '" + adminPassword + "'");
-		logManager.info("Starting server on port " + port);
+		log.info("Admin password is '" + adminPassword + "'");
+		log.info("Starting server on port " + port);
 	}
+	
+	@Override
+	public void onStart() {
+		final ITaskScheduler ts = getTaskScheduler();
 
-	public static OWOPServer getInstance() {
-		return OWOPServer.instance;
-	}
-
-	public LogManager getLogManager() {
-		return logManager;
-	}
-
-	public CommandManager getCommandManager() {
-		return commandManager;
+		worldManager.onStart(ts);
+		//AFKTimerID = ts.setInterval(() -> checkAFK(), 60000);
 	}
 
 	@Override
 	public void onOpen(final WebSocket ws) {
-		logManager.info("Connected new socket from " + ws.getRemoteSocketAddress());
+		connections.add(ws);
+		log.info("Connected new socket from " + ws.getRemoteSocketAddress());
+		ws.userData = NetworkState.getInitialConnectionState(ws);
+		totalOnline++;
 	}
 
 	@Override
 	public void onClose(final WebSocket ws, final int code, final String reason, final boolean remote) {
+		connections.remove(ws);
+		final NetworkState ns = (NetworkState) ws.userData;
+		ns.socketDisconnected();
 		final SocketAddress addr = ws.getRemoteSocketAddress();
+		log.info("Socket from " + addr + " disconnected");
+		totalOnline--;
+		/*final SocketAddress addr = ws.getRemoteSocketAddress();
 		final Player player = players.get(addr);
 		if (player != null) {
 			if (remote) {
-				logManager.info("Player " + player + " disconnected");
+				log.info("Player " + player + " disconnected");
 			}
 			final World world = player.getWorld();
 			world.playerLeft(player);
 			players.remove(addr);
 			totalOnline--;
 			if (world.getOnline() < 1) {
-				unloadWorld(world);
+				worldManager.unloadWorld(world);
 			}
 		} else {
-			logManager.info("Socket from " + addr + " disconnected");
-		}
+			log.info("Socket from " + addr + " disconnected");
+		}*/
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, final ByteBuffer message) {
-		final SocketAddress addr = ws.getRemoteSocketAddress();
+		final NetworkState ns = (NetworkState) ws.userData;
+		ns.processMessage(message);
+		/*final SocketAddress addr = ws.getRemoteSocketAddress();
 		Player player = players.get(addr);
 		message.order(ByteOrder.LITTLE_ENDIAN);
-		if (player == null) {
-			if (!isWorldNameValid(message)) {
-				logManager.warn("Join verification failed for socket from " + addr);
+		if (player == null) {*/
+			/*if (!isWorldNameValid(message)) {
+				log.warn("Join verification failed for socket from " + addr);
 				ws.close();
 				return;
 			}
 
 			final String worldName = StandardCharsets.US_ASCII.decode(message).toString();
-			final World world = getWorld(worldName);
+			final World world = worldManager.getWorld(worldName);
 
 			player = new Player(world.getNextID(), world, ws);
 			players.put(addr, player);
 			world.playerJoined(player);
-			logManager.info("Joined player " + player + " from " + addr);
-			totalOnline++;
-		} else {
+			log.info("Joined player " + player + " from " + addr);*/
+		/*} else {
 			switch (message.capacity()) {
 			case 8: {
 				final int x = message.getInt(0), y = message.getInt(4);
@@ -174,26 +207,20 @@ public class OWOPServer extends WebSocketServer {
 				break;
 			}
 			default:
-				logManager.warn("Unknown packet from " + player + " with " + message.capacity() + " bytes!");
+				log.warn("Unknown packet from " + player + " with " + message.capacity() + " bytes!");
 				player.kick();
 				break;
 			}
-		}
-	}
-
-	@Override
-	public void onStart() {
-		final ITaskScheduler ts = getTaskScheduler();
-
-		updatesTimerID = ts.setInterval(() -> sendUpdates(), 50);
-		AFKTimerID = ts.setInterval(() -> checkAFK(), 60000);
+		}*/
 	}
 
 	@Override
 	public void onMessage(final WebSocket ws, String message) {
-		final Player player = players.get(ws.getRemoteSocketAddress());
+		final NetworkState ns = (NetworkState) ws.userData;
+		ns.processMessage(message);
+		/*final Player player = players.get(ws.getRemoteSocketAddress());*/
 		/* length + 1 for verification byte */
-		if (!message.isEmpty() && player != null && message.length() <= 80 + 1 && message.length() > 1
+		/*if (!message.isEmpty() && player != null && message.length() <= 80 + 1 && message.length() > 1
 				&& message.codePointAt(message.length() - 1) == 10) {
 			message = message.trim();
 
@@ -204,21 +231,22 @@ public class OWOPServer extends WebSocketServer {
 			if (!message.isEmpty()) {
 				if (message.startsWith("/")) {
 					final String[] arguments = message.substring(1).toLowerCase().split(" ");
-					logManager.command(player + " issued " + Arrays.toString(arguments));
+					log.command(player + " issued " + Arrays.toString(arguments));
 					commandManager.executeCommand(arguments[0], Arrays.copyOfRange(arguments, 1, arguments.length),
 							player);
 				} else {
 					player.chatMessage((player.isAdmin() ? ChatHelper.ORANGE : "") + id + ": " + message);
 				}
 			}
-		}
+		}*/
 	}
 
 	public void broadcast(final String text, final boolean adminOnly) {
 		final PreparedMessage data = prepareMessage(text);
-		players.forEach((k, player) -> {
-			if (!adminOnly || player.isAdmin()) {
-				player.send(data);
+		connections.forEach((ws) -> {
+			final NetworkState ns = (NetworkState) ws.userData;
+			if (!adminOnly || (ns != null && ns.getRank() == Rank.ADMIN)) {
+				ws.sendPrepared(data);
 			}
 		});
 		data.finalizeMessage();
@@ -231,45 +259,17 @@ public class OWOPServer extends WebSocketServer {
 
 		try {
 			isClosed = true;
-			logManager.info("Shutting down server...");
+			log.info("Shutting down server...");
 			broadcast(ChatHelper.RED + "Shutting down server...", false);
-			for (final World world : worlds.values()) {
-				unloadWorld(world);
-			}
+
 			final ITaskScheduler ts = getTaskScheduler();
 			ts.clear(AFKTimerID);
-			ts.clear(updatesTimerID);
+			worldManager.onStop(ts);
+			conf.writeProps();
 			stop();
 		} catch (final Exception e) {
-			logManager.err("Something happened while shutting down!");
-			logManager.exception(e);
-		}
-	}
-
-	public World getWorld(final String worldName) {
-		World world = worlds.get(worldName);
-		if (world == null) {
-			world = new World(worldName);
-			worlds.put(worldName, world);
-			logManager.info("Loaded world " + world);
-		}
-		return world;
-	}
-
-	public void unloadWorld(final String worldName) {
-		final World world = worlds.get(worldName);
-		if (world != null) {
-			world.save();
-			worlds.remove(worldName);
-			logManager.info("Unloaded world " + world);
-		}
-	}
-
-	public void unloadWorld(final World world) {
-		if (world != null) {
-			world.save();
-			worlds.remove(world.getName());
-			logManager.info("Unloaded world " + world);
+			log.err("Something happened while shutting down!");
+			log.exception(e);
 		}
 	}
 
@@ -293,40 +293,40 @@ public class OWOPServer extends WebSocketServer {
 		return totalOnline;
 	}
 
-	public static boolean isWorldNameValid(final ByteBuffer nameBytes) {
-		/* Validate world name, allowed chars are a..z, 0..9, '_' and '.' */
-		final int size = nameBytes.capacity();
-
-		if (size < 3 || size - 2 > 24 || nameBytes.getShort(size - 2) != 1337) {
-			return false;
-		}
-
-		nameBytes.limit(size - 2);
-		for (int i = 0; i < nameBytes.limit(); i++) {
-			final byte b = nameBytes.get(i);
-			if (!((b > 96 && b < 123) || (b > 47 && b < 58) || b == 95 || b == 46)) {
-				return false;
-			}
-		}
-		return true;
+	public CommandManager getCommandManager() {
+		return commandManager;
+	}
+	
+	public WorldManager getWorldManager() {
+		return worldManager;
+	}
+	
+	public String getMOTD() {
+		return MOTD;
+	}
+	
+	public static String getProperty(final String key) {
+		return conf.getProperties().getProperty(key);
+	}
+	
+	public static boolean getBoolProperty(final String key) {
+		return conf.getProperties().getProperty(key, "").equals("true");
+	}
+	
+	public static OWOPServer getInstance() {
+		return OWOPServer.instance;
 	}
 
-	public void sendUpdates() {
-		for (final World world : worlds.values()) {
-			world.sendUpdates();
-		}
-	}
-
-	public void checkAFK() {
+	/*public void checkAFK() {
 		final long time = System.currentTimeMillis();
 		for (final Player player : players.values()) {
 			if (time - player.getLastMoveTime() > Player.AFKMIN * 60000 && !player.isAdmin()) {
-				logManager.warn("Player " + player + " is inactive too long");
+				log.warn("Player " + player + " is inactive too long");
 				player.sendMessage(ChatHelper.RED + "Kicked for inactivity!");
 				player.kick();
 			}
 		}
-	}
+	}*/
 
 	@Override
 	public void onStop() {
