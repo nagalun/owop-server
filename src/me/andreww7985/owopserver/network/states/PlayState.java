@@ -12,21 +12,23 @@ import me.nagalun.jwebsockets.WebSocket;
 public class PlayState extends NetworkState {
 	/* Client opcodes */
 	private final static byte COP_LOAD_CHUNK = 0x01;
-	private final static byte COP_POS_UPDATE = 0x02;
-	private final static byte COP_SET_TOOL = 0x03;
-	private final static byte COP_USE_TOOL = 0x04; /* Packet content varies depending on tool */
-	private final static byte COP_CHAT = 0x05;
-	private final static byte COP_EXIT_WORLD = 0x06;
+	private final static byte COP_SET_AREA_SUBSCRIPTION = 0x02;
+	private final static byte COP_POS_UPDATE = 0x03;
+	private final static byte COP_SET_TOOL = 0x04;
+	private final static byte COP_USE_TOOL = 0x05; /* Packet content varies depending on tool */
+	private final static byte COP_CHAT = 0x06;
+	private final static byte COP_EXIT_WORLD = 0x07;
 
 	/* Server opcodes */
 	private final static byte SOP_SET_ID = 0x01;
 	private final static byte SOP_LOAD_CHUNK = 0x02;
-	private final static byte SOP_UNLOAD_CHUNK = 0x03;
+	private final static byte SOP_AREA_SUBSCRIBE_STATUS = 0x03;
 	private final static byte SOP_CLIENT_SYNC = 0x04; /* Includes client state: tool selected, position x/y, permissions, ... */
 	private final static byte SOP_ACTION_REJECTED = 0x05; /* Over pixel limit, tool not allowed, etc. */
 	private final static byte SOP_WORLD_STATE = 0x06;
 	private final static byte SOP_CHAT = 0x07;
 	private final static byte SOP_DEV_CHAT = 0x08;
+	private final static byte SOP_PLAYERCOUNT = 0x09; /* Players in the current world */
 
 	private final Player player;
 
@@ -44,6 +46,9 @@ public class PlayState extends NetworkState {
 	public void processMessage(final ByteBuffer msg) {
 		switch (msg.get()) {
 		case COP_LOAD_CHUNK:
+			break;
+			
+		case COP_SET_AREA_SUBSCRIPTION:
 			break;
 
 		case COP_POS_UPDATE:
